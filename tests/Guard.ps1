@@ -82,9 +82,14 @@ Assert-Refused '[System.IO.File]::Delete("foo.txt")'
 Assert-Refused '[System.IO.File]::WriteAllText("foo.txt", "x")'
 Assert-Refused '[System.IO.Directory]::CreateDirectory("bar")'
 Assert-Refused 'cmd /c del foo.txt'
+# Pick a real application present on this platform rather than assuming one.
+$nativeExe = (Get-Command -CommandType Application -ErrorAction SilentlyContinue |
+    Select-Object -First 1)
 Assert-That 'native executables are refused by category' {
-    (@(Test-McCommandMutates 'robocopy a b') -join ' ') -match 'native executable'
+    if ($null -eq $nativeExe) { return $true }   # nothing to test against
+    (@(Test-McCommandMutates "$($nativeExe.Name) --version") -join ' ') -match 'native executable'
 }
+Assert-Refused 'this-command-does-not-exist-xyz'
 
 Write-Host "`nCommand screen: read-only commands still work" -ForegroundColor Cyan
 Assert-Allowed 'Get-ChildItem'
@@ -105,7 +110,9 @@ Write-Host "`nDocumented limits (these SHOULD pass the screen)" -ForegroundColor
 # Screening is by command name and verb; function bodies are not analysed.
 # Recording this as a test means the limit is known rather than assumed, and
 # the day it changes, this test tells us.
-function Get-DeceptivelyNamedThing { Remove-Item nosuch -ErrorAction SilentlyContinue }
+# Global scope, so Get-Command inside the module can resolve it -- otherwise
+# this would be refused as unresolvable and prove nothing about the limit.
+function global:Get-DeceptivelyNamedThing { Remove-Item nosuch -ErrorAction SilentlyContinue }
 Assert-Allowed 'Get-DeceptivelyNamedThing'
 
 Write-Host "`nInternal commands" -ForegroundColor Cyan

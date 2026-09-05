@@ -117,7 +117,9 @@ function Resolve-McCommandName {
     param([string] $Name)
 
     $cmd = Get-Command -Name $Name -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($null -eq $cmd) { return $Name }
+    # Always the same shape. Returning a bare string here used to make the
+    # caller read .Name off a string, which threw instead of screening.
+    if ($null -eq $cmd) { return @{ Name = $Name; Type = 'Unknown' } }
 
     $guard = 0
     while ($cmd.CommandType -eq 'Alias' -and $guard -lt 10) {
@@ -184,14 +186,22 @@ function Test-McCommandMutates {
         }
 
         $typed = $first.Value
-        $info = Resolve-McCommandName $typed
-        $name = $info.Name
-        $type = $info.Type
+        $info = $null
+        try { $info = Resolve-McCommandName $typed } catch { $info = $null }
+        if ($null -eq $info) { $info = @{ Name = $typed; Type = 'Unknown' } }
+        $name = [string]$info.Name
+        $type = [string]$info.Type
 
         if ($script:McSafeCommands.ContainsKey($name)) { continue }
 
         if ($type -eq 'Application') {
             $reasons.Add("'$typed' is a native executable and cannot be screened")
+            continue
+        }
+
+        # Refuse what cannot be resolved rather than assuming it is harmless.
+        if ($type -eq 'Unknown') {
+            $reasons.Add("'$typed' cannot be resolved, so it cannot be screened")
             continue
         }
 
