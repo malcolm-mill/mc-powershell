@@ -1,0 +1,12 @@
+# Build output
+bin/
+obj/
+src/Mc.PowerShell/Mc.Native.dll
+src/Mc.PowerShell/Mc.Native.pdb
+
+# Editor / OS
+.vs/
+.idea/
+*.user
+Thumbs.db
+desktop.ini
