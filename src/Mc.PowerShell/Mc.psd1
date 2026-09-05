@@ -26,6 +26,8 @@
         'Get-McPanelStats'
         'Write-McPanel'
         'Get-McProp'
+        'Get-McParentPath'
+        'Get-McLeafName'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()

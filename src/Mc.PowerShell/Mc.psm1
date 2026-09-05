@@ -56,4 +56,6 @@ Export-ModuleMember -Function @(
     'Get-McPanelStats'
     'Write-McPanel'
     'Get-McProp'
+    'Get-McParentPath'
+    'Get-McLeafName'
 )

@@ -131,7 +131,9 @@ Assert-That 'every row is exactly the screen width' {
     @(($frame -split "`n") | Select-Object -SkipLast 1 | Where-Object { $_.Length -ne 100 }).Count -eq 0
 }
 Assert-That 'the function key bar is drawn' { $frame -match '10Quit' }
-Assert-That 'the active panel path is in the frame' { $frame -match 'midnight' }
+# The checkout directory is not named the same everywhere, so derive it.
+$repoLeaf = [regex]::Escape((Get-McLeafName $repo))
+Assert-That 'the active panel path is in the frame' { $frame -match $repoLeaf }
 
 $state.Message = 'Hidden files: shown'
 Write-McFrame $screen $state

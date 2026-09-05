@@ -35,6 +35,14 @@ Requires PowerShell 7.2+ and the .NET SDK (8 or later) to build the native layer
 ./mc.ps1 -Left C:\projects -Right HKLM:\SOFTWARE
 ```
 
+Both test suites run headlessly -- no terminal needed, because the panel is a
+pure state machine and the renderer can paint to a text buffer:
+
+```powershell
+./tests/Smoke.ps1        # render a frame and print it as text
+./tests/KeySequence.ps1  # drive a scripted key sequence, assert on state
+```
+
 ## Keys in 0.1
 
 | Key | Action |
