@@ -226,7 +226,17 @@ $script:McKeymap = @{
     'end'       = { param($S, $Scr) $p = Get-McActivePanel $S; Set-McPanelCursor $p ($p.Entries.Count - 1) }
 
     'tab'       = { param($S, $Scr) $S.ActiveSide = if ($S.ActiveSide -eq 'Left') { 'Right' } else { 'Left' } }
-    'backspace' = { param($S, $Scr) Invoke-McPanelUp (Get-McActivePanel $S) }
+    # Context-sensitive, like Enter: edit the command line when there is one,
+    # otherwise navigate. This MUST be decided inside the handler -- the keymap
+    # is consulted before command-line editing, so anything bound here
+    # unconditionally shadows the command line completely.
+    'backspace' = { param($S, $Scr)
+                        if ($S.CommandLine.Length -gt 0) {
+                            $S.CommandLine = $S.CommandLine.Substring(0, $S.CommandLine.Length - 1)
+                        } else {
+                            Invoke-McPanelUp (Get-McActivePanel $S)
+                        }
+                    }
 
     'ins'       = { param($S, $Scr) Switch-McPanelMark (Get-McActivePanel $S) -Advance }
 
@@ -256,6 +266,15 @@ $script:McKeymap = @{
     'C-o'       = { param($S, $Scr) Invoke-McShellCommand $Scr $S 'Get-Location' }
 }
 
+function Get-McKeymap {
+    <#
+      The key dispatch table: canonical key name -> scriptblock.
+      Exposed so it can be inspected, rebound, or checked by tests -- notably
+      that it never claims a key the command line needs.
+    #>
+    $script:McKeymap
+}
+
 function Invoke-McKey {
     param(
         [hashtable] $State,
@@ -283,11 +302,8 @@ function Invoke-McKey {
     $handler = $script:McKeymap[$Key]
     if ($handler) { & $handler $State $Screen; return }
 
-    # Command-line editing.
-    if ($Key -eq 'backspace' -and $State.CommandLine.Length -gt 0) {
-        $State.CommandLine = $State.CommandLine.Substring(0, $State.CommandLine.Length - 1)
-        return
-    }
+    # Command-line editing. Only reached for keys the keymap does not claim,
+    # which is why Backspace handles its own context-sensitivity above.
     if ($Key -eq 'esc') { $State.CommandLine = ''; return }
     if ($Key -eq 'C-c') { $State.CommandLine = ''; return }
     if ($Key -eq 'space') { $State.CommandLine += ' '; return }

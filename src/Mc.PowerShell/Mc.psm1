@@ -45,6 +45,7 @@ Export-ModuleMember -Function @(
     'Write-McFrame'
     'Get-McColumnLayout'
     'Invoke-McKey'
+    'Get-McKeymap'
     'Get-McPanelCurrent'
     'Move-McPanelCursor'
     'Set-McPanelCursor'

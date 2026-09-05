@@ -120,6 +120,32 @@ Assert-That 'space appends'   { $state.CommandLine -eq 'gci ' }
 Invoke-McKey $state $screen 'esc'
 Assert-That 'Esc clears the command line' { $state.CommandLine -eq '' }
 
+Write-Host "`nCommand line vs. keymap (regression)" -ForegroundColor Cyan
+# Backspace was bound unconditionally in the keymap, and the keymap is consulted
+# before command-line editing -- so the delete-a-character branch was dead code.
+# Typing then backspacing walked the panel up to the drive root instead.
+$state.CommandLine = ''
+$locationBefore = $state.Left.Location
+foreach ($ch in 'l', 'l', 'l') { Invoke-McKey $state $screen $ch }
+Assert-That 'lll reaches the command line' { $state.CommandLine -eq 'lll' }
+
+foreach ($n in 1, 2, 3) { Invoke-McKey $state $screen 'backspace' }
+Assert-That 'Backspace deletes command-line characters' { $state.CommandLine -eq '' }
+Assert-That 'Backspace did not navigate while typing'   { $state.Left.Location -eq $locationBefore }
+
+Invoke-McKey $state $screen 'backspace'
+Assert-That 'Backspace on an empty command line navigates up' {
+    $state.Left.Location -ne $locationBefore
+}
+[void](Set-McPanelLocation $state.Left $locationBefore)
+
+# The class of bug, not just the instance: any key the keymap claims becomes
+# unreachable for the command line, so printable keys must never be bound.
+Assert-That 'no single printable key is bound in the keymap' {
+    @((Get-McKeymap).Keys | Where-Object { $_.Length -eq 1 }).Count -eq 0
+}
+
+
 Write-Host "`nRendering" -ForegroundColor Cyan
 # The main loop clears Message before each dispatch; do the same here, because
 # a pending message deliberately overlays the function key bar.
