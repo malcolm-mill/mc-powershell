@@ -43,6 +43,10 @@ jobs:
         shell: pwsh
         run: ./tests/Smoke.ps1
 
+      - name: Key translation test
+        shell: pwsh
+        run: ./tests/Keys.ps1
+
       - name: Key dispatch test
         shell: pwsh
         run: ./tests/KeySequence.ps1

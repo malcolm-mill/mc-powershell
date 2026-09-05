@@ -46,6 +46,7 @@ pure state machine and the renderer can paint to a text buffer:
 ./tests/KeySequence.ps1  # drive a scripted key sequence, assert on state
 ./tests/Guard.ps1        # safety modes and the command-line screen
 ./tests/Interface.ps1    # layout, menu hit boxes, mouse routing, viewer
+./tests/Keys.ps1         # raw key event -> canonical name -> app response
 ```
 
 ## Safety: read-only by default
@@ -87,6 +88,17 @@ exactly what is and is not caught.
 | Ctrl+O | Drop into a full-screen shell in the active panel's directory; `exit` returns, and the panel follows any `cd` |
 | Ctrl+Up / Ctrl+Down | Grow / shrink the output pane under the panels |
 | *typing* | Goes to the command line; Enter runs it in the active panel's location |
+
+## When a key does not work
+
+```powershell
+./tools/keytest.ps1
+```
+
+Shows what the input layer actually receives: the canonical name, the raw
+Windows virtual key code and control state, and whether the app has anything
+bound to it. mc has "Learn keys" for the same reason -- the first question is
+always whether the key even arrived.
 
 ## Mouse
 

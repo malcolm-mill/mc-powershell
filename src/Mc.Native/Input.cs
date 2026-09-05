@@ -19,6 +19,11 @@ namespace Mc.Native
         public string Button;           // left | right | middle | wheelup | wheeldown
         public bool Pressed;            // true on press, false on release
         public bool Double;             // double-click
+
+        // Raw values, for the key diagnostic in tools/keytest.ps1.
+        public int RawKeyCode;
+        public char RawChar;
+        public uint RawControlState;
         public bool Ctrl, Alt, Shift;
 
         public override string ToString()
@@ -70,11 +75,11 @@ namespace Mc.Native
         [StructLayout(LayoutKind.Sequential)]
         struct KEY_EVENT_RECORD
         {
-            [MarshalAs(UnmanagedType.Bool)] public bool bKeyDown;
+            public int bKeyDown;          // Win32 BOOL: 4 bytes, not 1
             public ushort wRepeatCount;
             public ushort wVirtualKeyCode;
             public ushort wVirtualScanCode;
-            public char UnicodeChar;
+            public ushort UnicodeChar;    // WCHAR, kept as ushort to stay blittable
             public uint dwControlKeyState;
         }
 
@@ -125,6 +130,34 @@ namespace Mc.Native
             get { return RuntimeInformation.IsOSPlatform(OSPlatform.Windows); }
         }
 
+        /// <summary>
+        /// What the input layer actually managed to set up. Printed by
+        /// tools/keytest.ps1 -- when keys or the mouse misbehave, this says
+        /// whether the native backend is even in play.
+        /// </summary>
+        public static string Diagnostics()
+        {
+            uint current = 0;
+            bool haveMode = false;
+            try { haveMode = _inHandle != IntPtr.Zero && GetConsoleMode(_inHandle, out current); }
+            catch { haveMode = false; }
+
+            int recordSize = Marshal.SizeOf(typeof(INPUT_RECORD));
+
+            return string.Join(Environment.NewLine, new[]
+            {
+                "platform         : " + (IsWindows ? "windows" : "other"),
+                "native backend   : " + (_native ? "yes (ReadConsoleInput)" : "no (Console.ReadKey fallback)"),
+                "mouse enabled    : " + MouseEnabled,
+                "input handle     : 0x" + _inHandle.ToInt64().ToString("x"),
+                "saved mode       : 0x" + _savedMode.ToString("x"),
+                "current mode     : " + (haveMode ? "0x" + current.ToString("x") : "unavailable"),
+                "INPUT_RECORD size: " + recordSize + " (expected 20)",
+                "input redirected : " + Console.IsInputRedirected,
+                "native failures  : " + NativeFailures
+            });
+        }
+
         public static void Start(bool enableMouse)
         {
             if (_native) return;
@@ -172,8 +205,24 @@ namespace Mc.Native
         /// </summary>
         public static InputEvent Read(int timeoutMs)
         {
-            return _native ? ReadNative(timeoutMs) : ReadFallback(timeoutMs);
+            if (!_native) return ReadFallback(timeoutMs);
+
+            try
+            {
+                return ReadNative(timeoutMs);
+            }
+            catch
+            {
+                // Never let the native backend leave the app with a dead
+                // keyboard: give up on it permanently and degrade to ReadKey.
+                NativeFailures++;
+                Stop();
+                return ReadFallback(timeoutMs);
+            }
         }
+
+        /// <summary>Times the native backend failed and fell back. Should be 0.</summary>
+        public static int NativeFailures { get; private set; }
 
         // --- ReadKey fallback (non-Windows, or if raw mode was refused) -----
 
@@ -212,8 +261,10 @@ namespace Mc.Native
 
                 INPUT_RECORD record;
                 uint read;
-                if (!ReadConsoleInput(_inHandle, out record, 1, out read) || read == 0)
-                    return null;
+                if (!ReadConsoleInput(_inHandle, out record, 1, out read))
+                    throw new InvalidOperationException(
+                        "ReadConsoleInput failed, error " + Marshal.GetLastWin32Error());
+                if (read == 0) return null;
 
                 InputEvent ev = Translate(record);
                 if (ev != null) return ev;
@@ -237,84 +288,21 @@ namespace Mc.Native
 
         static InputEvent TranslateKey(KEY_EVENT_RECORD k)
         {
-            if (!k.bKeyDown) return null;
+            string name = Keys.DescribeConsoleKey(k.wVirtualKeyCode, (char)k.UnicodeChar,
+                                                  k.dwControlKeyState, k.bKeyDown != 0);
+            if (name == null) return null;
 
-            bool ctrl = (k.dwControlKeyState & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED)) != 0;
-            bool alt = (k.dwControlKeyState & (LEFT_ALT_PRESSED | RIGHT_ALT_PRESSED)) != 0;
-            bool shift = (k.dwControlKeyState & SHIFT_PRESSED) != 0;
-
-            string name = VirtualKeyName(k.wVirtualKeyCode);
-            if (name != null && name.Length == 0) return null;   // bare modifier or lock
-
-            if (name == null)
-            {
-                // A printable character. Shift is already in the glyph.
-                if (k.UnicodeChar >= ' ' && k.UnicodeChar != (char)127)
-                {
-                    if (!ctrl && !alt) return Key(k.UnicodeChar.ToString(), false, false, false);
-                    name = char.ToLowerInvariant(k.UnicodeChar).ToString();
-                    shift = false;
-                }
-                else if (k.wVirtualKeyCode >= 'A' && k.wVirtualKeyCode <= 'Z')
-                {
-                    name = ((char)('a' + (k.wVirtualKeyCode - 'A'))).ToString();
-                    shift = false;
-                }
-                else if (k.wVirtualKeyCode >= '0' && k.wVirtualKeyCode <= '9')
-                {
-                    name = ((char)k.wVirtualKeyCode).ToString();
-                }
-                else return null;
-            }
-
-            return Key(name, ctrl, alt, shift);
-        }
-
-        static InputEvent Key(string name, bool ctrl, bool alt, bool shift)
-        {
-            string prefix = string.Empty;
-            if (ctrl) prefix += "C-";
-            if (alt) prefix += "M-";
-            if (shift) prefix += "S-";
             return new InputEvent
             {
                 Kind = InputKind.Key,
-                Key = prefix + name,
-                Ctrl = ctrl,
-                Alt = alt,
-                Shift = shift
+                Key = name,
+                Ctrl = (k.dwControlKeyState & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED)) != 0,
+                Alt = (k.dwControlKeyState & (LEFT_ALT_PRESSED | RIGHT_ALT_PRESSED)) != 0,
+                Shift = (k.dwControlKeyState & SHIFT_PRESSED) != 0,
+                RawKeyCode = k.wVirtualKeyCode,
+                RawChar = (char)k.UnicodeChar,
+                RawControlState = k.dwControlKeyState
             };
-        }
-
-        static string VirtualKeyName(ushort vk)
-        {
-            switch (vk)
-            {
-                case 0x08: return "backspace";
-                case 0x09: return "tab";
-                case 0x0D: return "enter";
-                case 0x1B: return "esc";
-                case 0x20: return "space";
-                case 0x21: return "pgup";
-                case 0x22: return "pgdn";
-                case 0x23: return "end";
-                case 0x24: return "home";
-                case 0x25: return "left";
-                case 0x26: return "up";
-                case 0x27: return "right";
-                case 0x28: return "down";
-                case 0x2D: return "ins";
-                case 0x2E: return "del";
-
-                // Bare modifiers and locks are not events on their own.
-                case 0x10: case 0x11: case 0x12:
-                case 0x14: case 0x90: case 0x91:
-                case 0x5B: case 0x5C: case 0x5D:
-                    return "";
-            }
-
-            if (vk >= 0x70 && vk <= 0x7B) return "f" + (vk - 0x70 + 1);
-            return null;
         }
 
         static InputEvent TranslateMouse(MOUSE_EVENT_RECORD m)
