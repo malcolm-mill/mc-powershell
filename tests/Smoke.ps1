@@ -16,14 +16,8 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot '../src/Mc.PowerShell/Mc.psd1') -Force
 
 $screen = [Mc.Native.Screen]::new($Width, $Height)
-$state = @{
-    Left        = New-McPanel $Left
-    Right       = New-McPanel $Right
-    ActiveSide  = 'Left'
-    CommandLine = 'Get-ChildItem | Measure-Object'
-    Message     = $null
-    Running     = $true
-}
+$state = New-McAppState -LeftPath $Left -RightPath $Right
+$state.CommandLine = 'Get-ChildItem | Measure-Object'
 
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 Write-McFrame $screen $state

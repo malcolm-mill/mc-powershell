@@ -53,6 +53,7 @@ Source of truth for mc's defaults: `misc/mc.keymap` on the `reference` branch.
 | Brief / long / custom listing | todo | M2 |
 | Columns per provider | done | **Beyond mc** — mc has no equivalent |
 | Mini-status line | done | |
+| Output lines pane | done | Ctrl+Up / Ctrl+Down. **Beyond mc** off Linux: mc reads the physical console buffer, so its version is console-only |
 | Marked-file totals | done | |
 | Directory sizes (Ctrl+Space) | todo | |
 
@@ -60,9 +61,10 @@ Source of truth for mc's defaults: `misc/mc.keymap` on the `reference` branch.
 
 | Feature | Status | Notes |
 |---|---|---|
-| Command line under the panels | partial | Runs, but as a shell-out not a live subshell |
-| Ctrl+O screen swap | partial | Runs and returns; not a true screen swap |
-| Same-session state (cwd, variables) | todo | M4 — the hard one |
+| Command line under the panels | done | Runs in place into the output pane when it is open, otherwise full-screen |
+| Ctrl+O screen swap | done | Full-screen shell in the panel's directory; `exit` returns and the panel follows any `cd`, as mc's `do_possible_cd` does |
+| Line editing in the subshell | partial | Host cooked-mode editing only; no history or tab completion yet (M4) |
+| Same-session state (cwd, variables) | done | Commands run in this PowerShell session, so state persists without a pty subshell |
 | Macros for current file / other panel | todo | M4 |
 | Tab completion | todo | M4 |
 

@@ -54,8 +54,11 @@ The milestone most file managers get quietly wrong. Errors are the feature.
 
 The hardest parity feature, and the one that makes it feel like mc.
 
-- [ ] Command line running in the *same* PowerShell session, not a child
-- [ ] Ctrl+O screen swap with the shell's scrollback preserved
+- [x] Command line running in the *same* PowerShell session, not a child
+- [x] Ctrl+O full-screen subshell, with the panel following the shell's `cd`
+- [x] Output pane under the panels (mc's "Output lines"), with commands run
+      in place rather than switching screens
+- [ ] Line editing in the subshell: history and tab completion (PSReadLine)
 - [ ] Macros: current file, other panel's path, marked files
 - [ ] Tab completion on the command line
 - [ ] Panel updates after a command changes the directory

@@ -80,8 +80,25 @@ exactly what is and is not caught.
 | Ctrl+R | Reload panel |
 | Ctrl+U | Swap panels |
 | Alt+. | Toggle hidden files |
-| Ctrl+O | Drop to the shell |
+| Ctrl+O | Drop into a full-screen shell in the active panel's directory; `exit` returns, and the panel follows any `cd` |
+| Ctrl+Up / Ctrl+Down | Grow / shrink the output pane under the panels |
 | *typing* | Goes to the command line; Enter runs it in the active panel's location |
+
+## The shell
+
+Two ways to work with a shell, following mc:
+
+**Ctrl+O** hands the whole terminal to a shell starting in the active panel's
+directory. Type `exit` to come back, and the panel follows you if you `cd`
+somewhere. Commands run in *this* PowerShell session, so variables, modules and
+location persist across trips in and out -- mc needs a pty subshell to achieve
+what we get for free.
+
+**Ctrl+Up** opens an output pane under the panels (mc's "Output lines" setting).
+With it open, commands typed on the command line run *in place* and their output
+appears in the pane -- no screen switch at all. Ctrl+Down shrinks it again. mc
+can only do this on a Linux virtual console, because it reads the physical
+console buffer; we own the renderer, so it works everywhere.
 
 ## How it is built
 

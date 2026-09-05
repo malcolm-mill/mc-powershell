@@ -189,6 +189,56 @@ function Show-McSortMenu {
     $Screen.Invalidate()
 }
 
+function Invoke-McCommandInPane {
+    <#
+      Run a command without leaving the panels, capturing its output into the
+      pane. Errors are captured too (2>&1) so a failure is visible in place
+      rather than silently swallowed.
+    #>
+    param($Screen, [hashtable] $State, [string] $Command)
+
+    # Screened here as well as in Invoke-McShellCommand: this is an exported
+    # entry point, and a guard that only one caller applies is not a guard.
+    if (-not (Test-McWritable)) {
+        $reasons = @(Test-McCommandMutates $Command)
+        if ($reasons.Count -gt 0) {
+            Add-McOutput $State @("Read-only mode: refused -- $($reasons[0])")
+            $State.Message = "Read-only mode: refused -- $($reasons[0])"
+            return
+        }
+    }
+
+    $panel = Get-McActivePanel $State
+    Add-McOutput $State @("$($panel.Location)> $Command")
+
+    Push-Location -LiteralPath $panel.Location -ErrorAction SilentlyContinue
+    try {
+        if (-not (Test-McWritable)) { $WhatIfPreference = $true }
+
+        $width = [Math]::Max(40, $Screen.Width - 1)
+        $text = ''
+        try {
+            $text = Invoke-Expression $Command 2>&1 | Out-String -Width $width
+        } catch {
+            $text = $_.Exception.Message
+        }
+
+        if (-not [string]::IsNullOrEmpty($text)) {
+            $lines = $text -split "`r?`n"
+            # Out-String pads with a trailing blank; do not let it eat a row.
+            while ($lines.Count -gt 0 -and [string]::IsNullOrWhiteSpace($lines[-1])) {
+                $lines = $lines[0..($lines.Count - 2)]
+            }
+            Add-McOutput $State $lines
+        }
+    } finally {
+        Pop-Location -ErrorAction SilentlyContinue
+    }
+
+    Update-McPanel $State.Left
+    Update-McPanel $State.Right
+}
+
 function Invoke-McShellCommand {
     <# Leave the alternate screen, run the command, come back. #>
     param($Screen, [hashtable] $State, [string] $Command)
@@ -205,6 +255,15 @@ function Invoke-McShellCommand {
     }
 
     $panel = Get-McActivePanel $State
+
+    # With the output pane open, run without leaving the panels and put the
+    # result in the pane. mc can only do this on a Linux virtual console
+    # (it reads the physical console buffer); we own the renderer, so it
+    # works everywhere.
+    if ([int]$State.OutputLines -gt 0) {
+        Invoke-McCommandInPane $Screen $State $Command
+        return
+    }
 
     [Mc.Native.Terminal]::Shutdown()
     try {
@@ -227,6 +286,131 @@ function Invoke-McShellCommand {
 
     Update-McPanel $State.Left
     Update-McPanel $State.Right
+}
+
+# --- application state -----------------------------------------------------
+
+function New-McAppState {
+    <#
+      One place that knows the shape of app state, so Start-Mc and the tests
+      cannot drift apart as fields are added.
+    #>
+    param(
+        [string] $LeftPath = (Get-Location).Path,
+        [string] $RightPath = (Get-Location).Path
+    )
+    @{
+        Left        = New-McPanel $LeftPath
+        Right       = New-McPanel $RightPath
+        ActiveSide  = 'Left'
+        CommandLine = ''
+        Message     = $null
+        Running     = $true
+
+        # mc calls this "output lines" (Options > Layout): rows of shell output
+        # kept on screen underneath the panels. 0 hides the pane.
+        OutputLines = 0
+        Output      = [System.Collections.Generic.List[string]]::new()
+    }
+}
+
+function Add-McOutput {
+    <# Append to the output ring buffer, oldest lines falling off the top. #>
+    param([hashtable] $State, [string[]] $Lines)
+
+    if ($null -eq $Lines) { return }
+    foreach ($line in $Lines) { [void]$State.Output.Add($line) }
+
+    $limit = 500
+    while ($State.Output.Count -gt $limit) { $State.Output.RemoveAt(0) }
+}
+
+function Set-McOutputLines {
+    param([hashtable] $State, [int] $Lines)
+
+    if ($Lines -lt 0) { $Lines = 0 }
+    if ($Lines -gt 30) { $Lines = 30 }
+    $State.OutputLines = $Lines
+    $State.Message = if ($Lines -eq 0) { 'Output pane hidden' } else { "Output pane: $Lines lines" }
+}
+
+function Read-McShellLine {
+    <#
+      One line of input for the subshell. Console::ReadLine gives the host's
+      own cooked-mode line editing, which is basic but works everywhere.
+      A PSReadLine-backed editor with history and completion is M4.
+    #>
+    $prompt = "$((Get-Location).Path)> "
+    Write-Host $prompt -NoNewline -ForegroundColor Green
+    try { [Console]::ReadLine() } catch { $null }
+}
+
+function Invoke-McSubshell {
+    <#
+      Ctrl+O, mc's CK_Shell / toggle_subshell.
+
+      mc leaves its alternate screen and hands the WHOLE terminal to a
+      persistent subshell; pressing Ctrl+O again returns to the panels, and if
+      you cd'd, the panel follows (mc's do_possible_cd). We get the persistence
+      for free because commands run in this very PowerShell session -- the
+      variables, modules and location are literally the same ones.
+    #>
+    param($Screen, [hashtable] $State)
+
+    $panel = Get-McActivePanel $State
+    $startLocation = $panel.Location
+    $endLocation = $startLocation
+
+    [Mc.Native.Terminal]::Shutdown()
+    try {
+        Push-Location -LiteralPath $startLocation -ErrorAction SilentlyContinue
+
+        Write-Host ''
+        Write-Host "mc-powershell subshell -- type 'exit' to return to the panels" -ForegroundColor Cyan
+        if (Test-McWritable) {
+            Write-Host 'READ-WRITE mode: commands can change files, registry and environment.' -ForegroundColor Red
+        } else {
+            Write-Host 'READ-ONLY mode: commands that would change anything are refused.' -ForegroundColor Green
+            # Second layer, for the whole session in the shell.
+            $WhatIfPreference = $true
+        }
+        Write-Host ''
+
+        while ($true) {
+            $line = Read-McShellLine
+            if ($null -eq $line) { break }            # EOF
+            $command = $line.Trim()
+            if ($command -eq '') { continue }
+            if ($command -eq 'exit' -or $command -eq 'quit') { break }
+
+            if (-not (Test-McWritable)) {
+                $reasons = @(Test-McCommandMutates $command)
+                if ($reasons.Count -gt 0) {
+                    Write-Host "Read-only mode: refused -- $($reasons[0])" -ForegroundColor Yellow
+                    continue
+                }
+            }
+
+            try { Invoke-Expression $command | Out-Host }
+            catch { Write-Host $_.Exception.Message -ForegroundColor Red }
+        }
+
+        $endLocation = (Get-Location).Path
+    } finally {
+        Pop-Location -ErrorAction SilentlyContinue
+        [Mc.Native.Terminal]::Init()
+        $Screen.Invalidate()
+    }
+
+    # The panel follows the shell, exactly as mc does on return.
+    if ($endLocation -and $endLocation -ne $startLocation) {
+        if (Set-McPanelLocation $panel $endLocation) {
+            $State.Message = "Followed the shell to $endLocation"
+        }
+    } else {
+        Update-McPanel $panel
+    }
+    Update-McPanel (Get-McInactivePanel $State)
 }
 
 # --- internal commands and guarded operations ------------------------------
@@ -341,7 +525,11 @@ $script:McKeymap = @{
     'f9'        = { param($S, $Scr) Show-McSortMenu $Scr $S }
     'f10'       = { param($S, $Scr) $S.Running = $false }
 
-    'C-o'       = { param($S, $Scr) Invoke-McShellCommand $Scr $S 'Get-Location' }
+    'C-o'       = { param($S, $Scr) Invoke-McSubshell $Scr $S }
+
+    # mc puts "Output lines" in the Layout dialog; a shortcut is friendlier.
+    'C-up'      = { param($S, $Scr) Set-McOutputLines $S ([int]$S.OutputLines + 1); $Scr.Invalidate() }
+    'C-down'    = { param($S, $Scr) Set-McOutputLines $S ([int]$S.OutputLines - 1); $Scr.Invalidate() }
 }
 
 function Get-McKeymap {
@@ -406,14 +594,7 @@ function Start-Mc {
     try {
         $screen = [Mc.Native.Screen]::new([Console]::WindowWidth, [Console]::WindowHeight)
 
-        $state = @{
-            Left        = New-McPanel $LeftPath
-            Right       = New-McPanel $RightPath
-            ActiveSide  = 'Left'
-            CommandLine = ''
-            Message     = $null
-            Running     = $true
-        }
+        $state = New-McAppState -LeftPath $LeftPath -RightPath $RightPath
 
         $dirty = $true
         while ($state.Running) {

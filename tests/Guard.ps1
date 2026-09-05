@@ -111,14 +111,7 @@ Assert-Allowed 'Get-DeceptivelyNamedThing'
 Write-Host "`nInternal commands" -ForegroundColor Cyan
 $screen = [Mc.Native.Screen]::new(100, 24)
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$state = @{
-    Left        = New-McPanel $repo
-    Right       = New-McPanel 'Env:'
-    ActiveSide  = 'Left'
-    CommandLine = ''
-    Message     = $null
-    Running     = $true
-}
+$state = New-McAppState -LeftPath $repo -RightPath 'Env:'
 
 Assert-That 'mc.ps1.mode is handled internally' {
     Invoke-McInternalCommand $state $screen 'mc.ps1.mode'

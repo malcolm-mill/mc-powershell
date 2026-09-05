@@ -63,6 +63,10 @@ Ordinary read-only work is unaffected: `Get-ChildItem`, pipelines through
 `Sort-Object` / `Where-Object` / `Format-Table`, `Set-Location`, `Select-String`
 and friends all run normally.
 
+The same screen applies everywhere a command can be run: the command line, the
+in-place output pane, and every line typed inside the Ctrl+O subshell. Each is
+screened independently, because a guard only one caller applies is not a guard.
+
 **Layer two — `$WhatIfPreference`.** While a command runs in read-only mode,
 `$WhatIfPreference` is set to `$true` in that scope. Any ShouldProcess-aware
 cmdlet that slipped past the screen reports what it *would* do instead of doing

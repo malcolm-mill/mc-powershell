@@ -33,14 +33,7 @@ function Assert-That {
 # The repository root makes a stable fixture: it has known subdirectories.
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $screen = [Mc.Native.Screen]::new(100, 24)
-$state = @{
-    Left        = New-McPanel $repo
-    Right       = New-McPanel 'Env:\'
-    ActiveSide  = 'Left'
-    CommandLine = ''
-    Message     = $null
-    Running     = $true
-}
+$state = New-McAppState -LeftPath $repo -RightPath 'Env:'
 Write-McFrame $screen $state   # establishes Panel.Rows
 
 Write-Host "`nPanel sources" -ForegroundColor Cyan
@@ -166,6 +159,52 @@ Write-McFrame $screen $state
 $overlaid = $screen.Snapshot()
 Assert-That 'a message overlays the key bar' { $overlaid -match 'Hidden files: shown' }
 Assert-That 'the overlaid key bar is hidden'  { $overlaid -notmatch '10Quit' }
+
+Write-Host "`nOutput pane (mc output lines)" -ForegroundColor Cyan
+$state.Message = $null
+Assert-That 'the pane starts hidden' { [int]$state.OutputLines -eq 0 }
+
+Invoke-McKey $state $screen 'C-up'
+Invoke-McKey $state $screen 'C-up'
+Assert-That 'Ctrl+Up grows the pane' { [int]$state.OutputLines -eq 2 }
+Invoke-McKey $state $screen 'C-down'
+Assert-That 'Ctrl+Down shrinks the pane' { [int]$state.OutputLines -eq 1 }
+Invoke-McKey $state $screen 'C-down'
+Invoke-McKey $state $screen 'C-down'
+Assert-That 'the pane does not shrink past zero' { [int]$state.OutputLines -eq 0 }
+
+# Panels must give up the rows, never the command line or the key bar.
+Set-McOutputLines $state 0
+Write-McFrame $screen $state
+$rowsClosed = $state.Left.Rows
+Set-McOutputLines $state 6
+Write-McFrame $screen $state
+Assert-That 'opening the pane shrinks the panels' { $state.Left.Rows -eq $rowsClosed - 6 }
+
+$state.Message = $null
+Write-McFrame $screen $state
+$framed = ($screen.Snapshot() -split "`n")
+Assert-That 'the key bar survives the pane' { $framed[23] -match '10Quit' }
+
+# A read-only command runs in place and lands in the pane.
+Invoke-McCommandInPane $screen $state 'Write-Output MC_PANE_MARKER'
+Write-McFrame $screen $state
+Assert-That 'in-pane output reaches the buffer' {
+    (($state.Output) -join ' ') -match 'MC_PANE_MARKER'
+}
+Assert-That 'in-pane output is drawn'   { $screen.Snapshot() -match 'MC_PANE_MARKER' }
+Assert-That 'the command itself is echoed' { (($state.Output) -join ' ') -match 'Write-Output' }
+
+# The guard applies on this path too, not just via Invoke-McShellCommand.
+Invoke-McCommandInPane $screen $state 'Remove-Item nosuch-file-xyz'
+Assert-That 'a mutating command is refused in the pane' {
+    $state.Message -match 'Read-only mode'
+}
+Assert-That 'the refusal is visible in the pane' {
+    (($state.Output) -join ' ') -match 'refused'
+}
+Set-McOutputLines $state 0
+$state.Message = $null
 
 Write-Host "`nQuit" -ForegroundColor Cyan
 Invoke-McKey $state $screen 'f10'

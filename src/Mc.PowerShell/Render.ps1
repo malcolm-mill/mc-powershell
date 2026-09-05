@@ -199,13 +199,35 @@ function Write-McFrame {
 
     $Screen.Clear([byte]$t.FileFg, [byte]$t.CmdBg)
 
-    $panelH = $h - 2
-    if ($panelH -lt 5) { $panelH = 5 }
+    # mc's "output lines": the pane takes rows from the panels, never from the
+    # command line or key bar, and the panels keep a workable minimum.
+    $outputLines = [int]$State.OutputLines
+    $panelH = $h - 2 - $outputLines
+    if ($panelH -lt 5) {
+        $panelH = [Math]::Min(5, [Math]::Max(1, $h - 2))
+        $outputLines = [Math]::Max(0, $h - 2 - $panelH)
+    }
     $leftW = [int]($w / 2)
     $rightW = $w - $leftW
 
     Write-McPanel $Screen $State.Left 0 0 $leftW $panelH ($State.ActiveSide -eq 'Left')
     Write-McPanel $Screen $State.Right $leftW 0 $rightW $panelH ($State.ActiveSide -eq 'Right')
+
+    # --- output pane -------------------------------------------------------
+    if ($outputLines -gt 0) {
+        $paneY = $panelH
+        $Screen.Fill(0, $paneY, $w, $outputLines, ' ', [byte]$t.CmdFg, [byte]$t.CmdBg, $script:AttrNone)
+
+        $buffer = $State.Output
+        $count = $buffer.Count
+        $first = [Math]::Max(0, $count - $outputLines)
+        for ($r = 0; $r -lt $outputLines; $r++) {
+            $i = $first + $r
+            $line = if ($i -lt $count) { [string]$buffer[$i] } else { '' }
+            $line = $line -replace "`t", '    '
+            $Screen.WriteFixed(0, $paneY + $r, $line, $w, [byte]$t.CmdFg, [byte]$t.CmdBg, $script:AttrNone)
+        }
+    }
 
     # --- command line ------------------------------------------------------
     $cmdY = $h - 2
