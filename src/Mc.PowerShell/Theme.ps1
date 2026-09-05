@@ -25,6 +25,11 @@ $script:McTheme = @{
 
     StatusFg      = 15
 
+    ModeRoFg      = 0      # read-only badge: black on green, calm
+    ModeRoBg      = 10
+    ModeRwFg      = 15     # read-write badge: white on red, alarming
+    ModeRwBg      = 9
+
     CmdFg         = 7
     CmdBg         = 0
 

@@ -210,10 +210,20 @@ function Write-McFrame {
     # --- command line ------------------------------------------------------
     $cmdY = $h - 2
     $active = $State.($State.ActiveSide)
-    $prompt = "$($active.Location)> "
     $Screen.Fill(0, $cmdY, $w, 1, ' ', [byte]$t.CmdFg, [byte]$t.CmdBg, $script:AttrNone)
-    $Screen.WriteFixed(0, $cmdY, $prompt, [Math]::Min($prompt.Length, $w), [byte]$t.DirFg, [byte]$t.CmdBg, $script:AttrBold)
-    $cmdX = [Math]::Min($prompt.Length, $w - 1)
+
+    # Mode badge. The user must never have to guess whether mc can write, so
+    # this is always on screen and read-write is deliberately alarming.
+    $writable = Test-McWritable
+    $badge = if ($writable) { ' RW ' } else { ' RO ' }
+    $badgeFg = if ($writable) { [byte]$t.ModeRwFg } else { [byte]$t.ModeRoFg }
+    $badgeBg = if ($writable) { [byte]$t.ModeRwBg } else { [byte]$t.ModeRoBg }
+    $Screen.WriteFixed(0, $cmdY, $badge, [Math]::Min($badge.Length, $w), $badgeFg, $badgeBg, $script:AttrBold)
+
+    $promptX = [Math]::Min($badge.Length + 1, [Math]::Max(0, $w - 1))
+    $prompt = "$($active.Location)> "
+    $Screen.WriteFixed($promptX, $cmdY, $prompt, [Math]::Min($prompt.Length, [Math]::Max(0, $w - $promptX)), [byte]$t.DirFg, [byte]$t.CmdBg, $script:AttrBold)
+    $cmdX = [Math]::Min($promptX + $prompt.Length, $w - 1)
     [void]$Screen.Write($cmdX, $cmdY, $State.CommandLine, [byte]$t.CmdFg, [byte]$t.CmdBg, $script:AttrNone)
     $Screen.Set($cmdX + $State.CommandLine.Length, $cmdY, ' ', [byte]$t.CmdBg, [byte]$t.CmdFg, $script:AttrNone)
 

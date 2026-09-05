@@ -30,6 +30,7 @@ if (-not ('Mc.Native.Screen' -as [type])) {
 # --- script parts ----------------------------------------------------------
 
 . (Join-Path $PSScriptRoot 'Theme.ps1')
+. (Join-Path $PSScriptRoot 'Guard.ps1')
 . (Join-Path $PSScriptRoot 'Sources.ps1')
 . (Join-Path $PSScriptRoot 'Panel.ps1')
 . (Join-Path $PSScriptRoot 'Render.ps1')
@@ -46,6 +47,12 @@ Export-ModuleMember -Function @(
     'Get-McColumnLayout'
     'Invoke-McKey'
     'Get-McKeymap'
+    'Get-McMode'
+    'Set-McMode'
+    'Test-McWritable'
+    'Assert-McWritable'
+    'Test-McCommandMutates'
+    'Invoke-McInternalCommand'
     'Get-McPanelCurrent'
     'Move-McPanelCursor'
     'Set-McPanelCursor'

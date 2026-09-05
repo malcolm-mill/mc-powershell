@@ -37,6 +37,9 @@ Make it pleasant to move around before making it able to destroy things.
 
 The milestone most file managers get quietly wrong. Errors are the feature.
 
+- [x] Safety modes: read-only by default, `Assert-McWritable` choke point,
+      command-line screening (landed early, before anything could mutate --
+      see [SAFETY.md](SAFETY.md))
 - [ ] F5 copy, F6 move/rename, F7 mkdir, F8 delete
 - [ ] Progress dialog with per-file and total, cancellable
 - [ ] Overwrite prompts: yes / no / all / none / newer-only

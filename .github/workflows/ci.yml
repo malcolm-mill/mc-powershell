@@ -35,3 +35,7 @@ jobs:
       - name: Key dispatch test
         shell: pwsh
         run: ./tests/KeySequence.ps1
+
+      - name: Safety guard test
+        shell: pwsh
+        run: ./tests/Guard.ps1

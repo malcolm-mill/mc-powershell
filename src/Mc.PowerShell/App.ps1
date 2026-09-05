@@ -194,12 +194,26 @@ function Invoke-McShellCommand {
     param($Screen, [hashtable] $State, [string] $Command)
 
     if ([string]::IsNullOrWhiteSpace($Command)) { return }
+
+    # First layer: screen the command before it ever runs.
+    if (-not (Test-McWritable)) {
+        $reasons = @(Test-McCommandMutates $Command)
+        if ($reasons.Count -gt 0) {
+            $State.Message = "Read-only mode: refused -- $($reasons[0])"
+            return
+        }
+    }
+
     $panel = Get-McActivePanel $State
 
     [Mc.Native.Terminal]::Shutdown()
     try {
         Push-Location -LiteralPath $panel.Location -ErrorAction SilentlyContinue
         Write-Host "$($panel.Location)> $Command"
+        # Second layer: anything ShouldProcess-aware that slipped past the
+        # screen reports what it would do instead of doing it. Scoped to this
+        # function, so it cannot leak into the rest of the session.
+        if (-not (Test-McWritable)) { $WhatIfPreference = $true }
         try { Invoke-Expression $Command | Out-Host }
         catch { Write-Host $_.Exception.Message -ForegroundColor Red }
         Pop-Location -ErrorAction SilentlyContinue
@@ -213,6 +227,66 @@ function Invoke-McShellCommand {
 
     Update-McPanel $State.Left
     Update-McPanel $State.Right
+}
+
+# --- internal commands and guarded operations ------------------------------
+
+function Invoke-McGuardedStub {
+    <#
+      Placeholder for the M3 file operations. It exists now so the guard is
+      wired in and demonstrable from day one rather than retrofitted: every
+      mutating operation must pass Assert-McWritable before it does anything.
+    #>
+    param([hashtable] $State, [string] $Operation)
+
+    try { Assert-McWritable -Operation $Operation }
+    catch { $State.Message = $_.Exception.Message; return }
+
+    $State.Message = "$Operation is not implemented yet (roadmap M3)"
+}
+
+# Commands mc handles itself instead of passing to the shell.
+$script:McInternalCommands = @{
+
+    'mc.ps1.ro' = { param($S, $Scr)
+        [void](Set-McMode -Mode ReadOnly)
+        $S.Message = 'READ-ONLY mode: changes are refused'
+    }
+
+    'mc.ps1.rw' = { param($S, $Scr)
+        if (Test-McWritable) { $S.Message = 'Already in read-write mode'; return }
+
+        # Safe by default: the cursor starts on "No".
+        $answer = Show-McList $Scr $S 'Leave read-only mode?' @(
+            'No   -- stay read-only',
+            'Yes  -- allow changes to files, registry and environment'
+        ) { param($i) $i }
+
+        if ($answer -like 'Yes*') {
+            [void](Set-McMode -Mode ReadWrite)
+            $S.Message = 'READ-WRITE mode: changes are allowed'
+        } else {
+            $S.Message = 'Stayed in read-only mode'
+        }
+        $Scr.Invalidate()
+    }
+
+    'mc.ps1.mode' = { param($S, $Scr)
+        $S.Message = "Current mode: $(Get-McMode)"
+    }
+}
+
+function Invoke-McInternalCommand {
+    <#
+      Returns $true when the command line was an internal command and has been
+      handled, so the caller must not pass it to the shell.
+    #>
+    param([hashtable] $State, $Screen, [string] $Command)
+
+    $handler = $script:McInternalCommands[$Command.Trim()]
+    if ($null -eq $handler) { return $false }
+    & $handler $State $Screen
+    return $true
 }
 
 # --- keymap ----------------------------------------------------------------
@@ -260,6 +334,10 @@ $script:McKeymap = @{
                             $S.Message = 'F3 views files only (for now)'
                         }
                     }
+    'f5'        = { param($S, $Scr) Invoke-McGuardedStub $S 'Copy' }
+    'f6'        = { param($S, $Scr) Invoke-McGuardedStub $S 'Rename/move' }
+    'f7'        = { param($S, $Scr) Invoke-McGuardedStub $S 'Mkdir' }
+    'f8'        = { param($S, $Scr) Invoke-McGuardedStub $S 'Delete' }
     'f9'        = { param($S, $Scr) Show-McSortMenu $Scr $S }
     'f10'       = { param($S, $Scr) $S.Running = $false }
 
@@ -288,6 +366,7 @@ function Invoke-McKey {
         if (-not [string]::IsNullOrWhiteSpace($State.CommandLine)) {
             $cmd = $State.CommandLine
             $State.CommandLine = ''
+            if (Invoke-McInternalCommand $State $Screen $cmd) { return }
             Invoke-McShellCommand $Screen $State $cmd
             return
         }

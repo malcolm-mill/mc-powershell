@@ -41,7 +41,27 @@ pure state machine and the renderer can paint to a text buffer:
 ```powershell
 ./tests/Smoke.ps1        # render a frame and print it as text
 ./tests/KeySequence.ps1  # drive a scripted key sequence, assert on state
+./tests/Guard.ps1        # safety modes and the command-line screen
 ```
+
+## Safety: read-only by default
+
+**mc-powershell starts read-only every time, and the mode is never persisted.**
+Nothing can be created, changed or deleted -- files, registry keys or
+environment variables -- until you deliberately say otherwise. The current mode
+is always visible as a badge at the left of the command line.
+
+| Command | Effect |
+|---|---|
+| `mc.ps1.ro` | Return to read-only (the default) |
+| `mc.ps1.rw` | Ask to enable read-write; the confirmation defaults to **No** |
+| `mc.ps1.mode` | Report the current mode |
+
+mc's own operations pass through a single choke point, `Assert-McWritable`,
+which makes them airtight. The command line runs arbitrary PowerShell, so it
+gets an AST screen plus `$WhatIfPreference` instead -- strong against mistakes,
+but explicitly **not** a sandbox. [docs/SAFETY.md](docs/SAFETY.md) states
+exactly what is and is not caught.
 
 ## Keys in 0.1
 
@@ -55,6 +75,7 @@ pure state machine and the renderer can paint to a text buffer:
 | F2 | **Change drive or provider** -- pick any PSDrive |
 | F3 | View file |
 | F9 | Sort order |
+| F5-F8 | Copy / move / mkdir / delete -- refused in read-only mode, not implemented yet in read-write (M3) |
 | F10 | Quit |
 | Ctrl+R | Reload panel |
 | Ctrl+U | Swap panels |
