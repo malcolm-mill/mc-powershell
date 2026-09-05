@@ -25,6 +25,9 @@ C:\projects>
 
 ## Quick start
 
+**Windows only.** Linux and macOS are frozen, not supported --
+see [docs/PLATFORMS.md](docs/PLATFORMS.md).
+
 Requires PowerShell 7.2+ and the .NET SDK (8 or later) to build the native layer.
 
 ```powershell
@@ -93,10 +96,10 @@ click in a panel focuses that panel and moves the cursor, clicking the
 highlighted row again descends into it, and the wheel scrolls whichever panel
 is under the pointer.
 
-Mouse support is Windows-only for now: we read the console input queue directly,
-because `Console.ReadKey` discards mouse events. On Linux and macOS the app
-falls back to key-only input and everything else works unchanged. Options ->
-Mouse support reports which you have.
+The mouse needs `ReadConsoleInput`, because `Console.ReadKey` discards mouse
+events. If that setup is refused -- input redirected, an unusual host -- the app
+falls back to key-only input rather than failing. Options -> Mouse support
+reports which you got.
 
 ## Viewer
 

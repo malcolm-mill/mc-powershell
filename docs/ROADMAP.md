@@ -29,7 +29,7 @@ Make it pleasant to move around before making it able to destroy things.
 - [ ] Panel history, Alt+Y / Alt+U
 - [ ] Directory hotlist
 - [ ] Config persistence (panel paths, sort, hidden-files flag)
-- [ ] Pester suite + golden-frame fixtures; CI on Windows/Linux/macOS
+- [ ] Pester suite + golden-frame fixtures (CI is Windows only -- see PLATFORMS.md)
 
 ---
 
@@ -95,7 +95,7 @@ Pulled forward because they change how everything else is used:
 
 - [x] Menu bar (was M7): Left / File / Command / Options / Right, keyboard and mouse
 - [x] Mouse support (not previously on the roadmap): clickable key bar, menu
-      and panels. Windows only; an SGR decoder for Linux/macOS is outstanding
+      and panels
 - [x] Built-in viewer (was M5), see above
 
 ---

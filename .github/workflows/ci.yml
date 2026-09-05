@@ -1,5 +1,20 @@
 name: CI
 
+# Windows only, by decision -- see docs/PLATFORMS.md.
+#
+# The Linux and macOS jobs are frozen, not deleted. Restoring them means
+# putting this back in place of "runs-on: windows-latest":
+#
+#   name: ${{ matrix.os }}
+#   runs-on: ${{ matrix.os }}
+#   strategy:
+#     fail-fast: false
+#     matrix:
+#       os: [windows-latest, ubuntu-latest, macos-latest]
+#
+# Anything that only works on Windows must be recorded in docs/COMPAT.md, so
+# the cost of unfreezing stays visible instead of accumulating silently.
+
 on:
   push:
     branches: [main]
@@ -8,12 +23,8 @@ on:
 
 jobs:
   test:
-    name: ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+    name: windows
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -26,8 +37,8 @@ jobs:
         shell: pwsh
         run: ./build.ps1
 
-      # Both suites run headlessly on purpose: the panel is a pure state
-      # machine and Screen.Snapshot() renders to text, so neither needs a TTY.
+      # Every suite runs headlessly: the panel is a pure state machine,
+      # Screen.Snapshot() renders to text, and layout is computed data.
       - name: Render smoke test
         shell: pwsh
         run: ./tests/Smoke.ps1

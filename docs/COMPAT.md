@@ -6,6 +6,10 @@ legitimate answers, silence is not.
 
 Source of truth for mc's defaults: `misc/mc.keymap` on the `reference` branch.
 
+Windows is the only supported platform; anything Windows-specific is recorded
+here so the cost of unfreezing the others stays visible. See
+[PLATFORMS.md](PLATFORMS.md).
+
 **Status values:** done | partial | todo | different | wont-do
 
 ## Panel navigation
@@ -77,7 +81,7 @@ Source of truth for mc's defaults: `misc/mc.keymap` on the `reference` branch.
 | Click to focus a panel and select a row | done | |
 | Click the selected row to descend | done | Double-click works too |
 | Wheel scrolls the panel under the pointer | done | |
-| Mouse off Windows | todo | Needs an SGR mouse decoder for VT input; key-only until then |
+| Mouse off Windows | wont-do | Windows is the only supported platform ([PLATFORMS.md](PLATFORMS.md)). Would need an SGR decoder for VT input |
 
 ## VFS
 
