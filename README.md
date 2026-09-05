@@ -198,6 +198,11 @@ Register-McPanelSource -Source @{
 }
 ```
 
+## What is next
+
+[TODO.txt](TODO.txt) holds the next few concrete jobs;
+[docs/ROADMAP.md](docs/ROADMAP.md) holds the milestones.
+
 ## Repository layout
 
 | Branch | Contents |
