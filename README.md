@@ -42,6 +42,7 @@ pure state machine and the renderer can paint to a text buffer:
 ./tests/Smoke.ps1        # render a frame and print it as text
 ./tests/KeySequence.ps1  # drive a scripted key sequence, assert on state
 ./tests/Guard.ps1        # safety modes and the command-line screen
+./tests/Interface.ps1    # layout, menu hit boxes, mouse routing, viewer
 ```
 
 ## Safety: read-only by default
@@ -73,8 +74,8 @@ exactly what is and is not caught.
 | Tab | Switch panel |
 | Insert | Mark / unmark, advance |
 | F2 | **Change drive or provider** -- pick any PSDrive |
-| F3 | View file |
-| F9 | Sort order |
+| F9 | Menu bar (Left / File / Command / Options / Right) |
+| F3 | View file in the built-in viewer |
 | F5-F8 | Copy / move / mkdir / delete -- refused in read-only mode, not implemented yet in read-write (M3) |
 | F10 | Quit |
 | Ctrl+R | Reload panel |
@@ -83,6 +84,37 @@ exactly what is and is not caught.
 | Ctrl+O | Drop into a full-screen shell in the active panel's directory; `exit` returns, and the panel follows any `cd` |
 | Ctrl+Up / Ctrl+Down | Grow / shrink the output pane under the panels |
 | *typing* | Goes to the command line; Enter runs it in the active panel's location |
+
+## Mouse
+
+Click the function key bar instead of pressing F1-F10 -- useful when the OS or
+terminal has already claimed those keys. Clicking a menu title opens it, a
+click in a panel focuses that panel and moves the cursor, clicking the
+highlighted row again descends into it, and the wheel scrolls whichever panel
+is under the pointer.
+
+Mouse support is Windows-only for now: we read the console input queue directly,
+because `Console.ReadKey` discards mouse events. On Linux and macOS the app
+falls back to key-only input and everything else works unchanged. Options ->
+Mouse support reports which you have.
+
+## Viewer
+
+F3 opens the built-in viewer. It works out the encoding from the bytes -- BOM
+first, then UTF-8, falling back to Latin-1 so odd bytes show as the wrong glyph
+rather than being destroyed -- and refuses to spew a binary file at you.
+
+| Key | |
+|---|---|
+| Arrows / PgUp / PgDn / Home / End | Move |
+| Left / Right | Scroll sideways when not wrapping |
+| F2 | Wrap on/off |
+| F4 | Line numbers on/off |
+| F5 | Go to line |
+| F7 | Search; `n` and `N` for next and previous |
+| F3, F10, Esc, `q` | Close |
+
+Markdown rendering and a hex mode come later; this is the plumbing they sit on.
 
 ## The shell
 

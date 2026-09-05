@@ -1,0 +1,379 @@
+# ---------------------------------------------------------------------------
+# The built-in file viewer (F3), following mc's viewer.
+#
+# Scope for now: show the contents of a text file correctly, whatever encoding
+# it happens to be in. Markdown rendering, syntax colouring and a hex mode come
+# later; this is the plumbing they will sit on.
+# ---------------------------------------------------------------------------
+
+function Get-McFileEncoding {
+    <#
+      Pick an encoding by looking at the bytes, in mc's spirit of showing you
+      what is actually there rather than guessing and mangling it.
+
+      BOM wins. Otherwise, if the bytes are valid UTF-8, use UTF-8 -- that is
+      almost always right today. If they are not, fall back to Latin-1, which
+      never throws and never loses a byte, so at worst you see the wrong glyph
+      rather than a replacement character.
+    #>
+    param([byte[]] $Head)
+
+    if ($Head.Length -ge 3 -and $Head[0] -eq 0xEF -and $Head[1] -eq 0xBB -and $Head[2] -eq 0xBF) {
+        return [System.Text.Encoding]::UTF8
+    }
+    if ($Head.Length -ge 2 -and $Head[0] -eq 0xFF -and $Head[1] -eq 0xFE) {
+        return [System.Text.Encoding]::Unicode
+    }
+    if ($Head.Length -ge 2 -and $Head[0] -eq 0xFE -and $Head[1] -eq 0xFF) {
+        return [System.Text.Encoding]::BigEndianUnicode
+    }
+
+    $strict = [System.Text.UTF8Encoding]::new($false, $true)
+    try {
+        [void]$strict.GetString($Head)
+        return [System.Text.Encoding]::UTF8
+    } catch {
+        return [System.Text.Encoding]::GetEncoding(28591)   # ISO-8859-1
+    }
+}
+
+function Test-McBinaryContent {
+    <# A NUL byte in the first block is the usual give-away. #>
+    param([byte[]] $Head)
+    foreach ($b in $Head) { if ($b -eq 0) { return $true } }
+    $false
+}
+
+function Read-McViewerFile {
+    <#
+      Load a file for viewing. Returns a hashtable with Lines, Encoding, Binary
+      and Truncated, or Error if it could not be read.
+    #>
+    param([string] $Path, [int] $MaxLines = 500000)
+
+    try {
+        $info = [System.IO.FileInfo]::new($Path)
+        $length = $info.Length
+
+        $headSize = [Math]::Min(8192, [int][Math]::Min($length, 8192))
+        $head = [byte[]]::new($headSize)
+        if ($headSize -gt 0) {
+            $fs = [System.IO.File]::OpenRead($Path)
+            try { [void]$fs.Read($head, 0, $headSize) } finally { $fs.Dispose() }
+        }
+
+        if (Test-McBinaryContent $head) {
+            return @{
+                Lines = @("[binary file: $([Mc.Native.Fs]::FormatSize($length))]",
+                          '',
+                          'A hex view is on the roadmap (M5). Nothing has been changed.')
+                Encoding = 'binary'; Binary = $true; Truncated = $false; Length = $length
+            }
+        }
+
+        $encoding = Get-McFileEncoding $head
+        $lines = [System.Collections.Generic.List[string]]::new()
+        $truncated = $false
+
+        $reader = [System.IO.StreamReader]::new($Path, $encoding, $true)
+        try {
+            while (-not $reader.EndOfStream) {
+                if ($lines.Count -ge $MaxLines) { $truncated = $true; break }
+                [void]$lines.Add($reader.ReadLine())
+            }
+            $encodingName = $reader.CurrentEncoding.WebName
+        } finally { $reader.Dispose() }
+
+        @{
+            Lines = $lines
+            Encoding = $encodingName
+            Binary = $false
+            Truncated = $truncated
+            Length = $length
+        }
+    } catch {
+        @{ Error = $_.Exception.Message }
+    }
+}
+
+function Invoke-McViewCurrent {
+    <# F3 on whatever the active panel is pointing at. #>
+    param($Screen, [hashtable] $State)
+
+    $entry = Get-McPanelCurrent (Get-McActivePanel $State)
+    if ($null -eq $entry) { return }
+    if ($entry.IsContainer) { $State.Message = 'Enter opens a directory; F3 views files'; return }
+
+    $path = $entry.Key
+    if (-not $path) { $State.Message = "Nothing to view for $($entry.Name)"; return }
+
+    # Provider items are not necessarily files; view what is on disk only.
+    $resolved = $null
+    try {
+        if (Test-Path -LiteralPath $path -PathType Leaf -ErrorAction Stop) {
+            $resolved = (Convert-Path -LiteralPath $path -ErrorAction Stop)
+        }
+    } catch { $resolved = $null }
+
+    if (-not $resolved) {
+        $State.Message = "$($entry.Name) is not a file on disk"
+        return
+    }
+
+    Show-McViewer $Screen $State $resolved
+}
+
+function Show-McViewer {
+    <#
+      mc's viewer keys, as far as we implement them:
+        arrows / PgUp / PgDn / Home / End   move
+        left / right                        scroll sideways when unwrapped
+        F2                                  wrap on/off
+        F4                                  line numbers on/off
+        F5                                  go to line
+        F7                                  search;  n / N  next / previous
+        F3 / F10 / Esc                      close
+      The mouse works too: wheel scrolls, and a click on the key bar acts as
+      that F-key.
+    #>
+    param($Screen, [hashtable] $State, [string] $Path)
+
+    $file = Read-McViewerFile $Path
+    if ($file.ContainsKey('Error')) {
+        $State.Message = "Cannot view: $($file.Error)"
+        return
+    }
+
+    $t = $script:McTheme
+    $lines = $file.Lines
+    $count = $lines.Count
+
+    $top = 0
+    $left = 0
+    $wrap = $false
+    $numbers = $false
+    $search = ''
+    $matchLine = -1
+
+    $keyLabels = @(
+        '1', 'Help', '2', 'Wrap', '3', 'Quit', '4', 'LineNo', '5', 'Goto',
+        '6', '', '7', 'Search', '8', '', '9', '', '10', 'Quit'
+    )
+
+    while ($true) {
+        $w = $Screen.Width
+        $h = $Screen.Height
+        $bodyY = 1
+        $rows = [Math]::Max(1, $h - 2)
+        $keyY = $h - 1
+
+        # --- wrapping produces display rows from source lines ---------------
+        $gutter = if ($numbers) { ([string]$count).Length + 1 } else { 0 }
+        $textW = [Math]::Max(1, $w - $gutter)
+
+        $display = [System.Collections.Generic.List[object]]::new()
+        $i = $top
+        while ($display.Count -lt $rows -and $i -lt $count) {
+            $line = [string]$lines[$i]
+            $line = $line -replace "`t", '    '
+            if ($wrap -and $line.Length -gt $textW) {
+                $offset = 0
+                while ($offset -lt $line.Length -and $display.Count -lt $rows) {
+                    $chunk = $line.Substring($offset, [Math]::Min($textW, $line.Length - $offset))
+                    [void]$display.Add(@{ Number = $i; Text = $chunk; First = ($offset -eq 0) })
+                    $offset += $textW
+                }
+            } else {
+                $text = if ($left -lt $line.Length) { $line.Substring($left) } else { '' }
+                [void]$display.Add(@{ Number = $i; Text = $text; First = $true })
+            }
+            $i++
+        }
+
+        # --- paint -----------------------------------------------------------
+        $Screen.Clear([byte]$t.ViewFg, [byte]$t.ViewBg)
+
+        $title = " $Path "
+        $Screen.WriteFixed(0, 0, $title, $w, [byte]$t.TitleFg, [byte]$t.TitleBg, $script:AttrBold)
+
+        for ($r = 0; $r -lt $rows; $r++) {
+            $y = $bodyY + $r
+            if ($r -ge $display.Count) {
+                $Screen.WriteFixed(0, $y, '~', $w, [byte]$t.ViewLineNoFg, [byte]$t.ViewBg, $script:AttrNone)
+                continue
+            }
+            $row = $display[$r]
+
+            if ($numbers) {
+                $label = if ($row.First) { [string]($row.Number + 1) } else { '' }
+                $Screen.WriteRight(0, $y, "$label ", $gutter, [byte]$t.ViewLineNoFg, [byte]$t.ViewBg, $script:AttrNone)
+            }
+
+            $isMatch = ($search -and $row.Number -eq $matchLine)
+            $fg = if ($isMatch) { [byte]$t.ViewMatchFg } else { [byte]$t.ViewFg }
+            $bg = if ($isMatch) { [byte]$t.ViewMatchBg } else { [byte]$t.ViewBg }
+            $Screen.WriteFixed($gutter, $y, $row.Text, $textW, $fg, $bg, $script:AttrNone)
+        }
+
+        # --- status and key bar ---------------------------------------------
+        $percent = if ($count -le 0) { 100 } else { [int](100 * [Math]::Min(1.0, ($top + $rows) / [double]$count)) }
+        $flags = @()
+        if ($wrap) { $flags += 'wrap' }
+        if ($numbers) { $flags += 'numbers' }
+        if ($file.Truncated) { $flags += 'TRUNCATED' }
+        if ($left -gt 0) { $flags += "col $($left + 1)" }
+        $status = " $($file.Encoding)  line $($top + 1)/$count  $percent%"
+        if ($flags.Count -gt 0) { $status += '  [' + ($flags -join ' ') + ']' }
+        if ($search) { $status += "  search: $search" }
+
+        $Screen.Fill(0, $keyY, $w, 1, ' ', [byte]$t.KeyLabelFg, [byte]$t.KeyLabelBg, $script:AttrNone)
+        $slot = [Math]::Max(1, [int]($w / 10))
+        for ($k = 0; $k -lt 10; $k++) {
+            $x = $k * $slot
+            $num = $keyLabels[$k * 2]
+            $lbl = $keyLabels[$k * 2 + 1]
+            [void]$Screen.Write($x, $keyY, $num, [byte]$t.KeyNumFg, [byte]$t.KeyNumBg, $script:AttrNone)
+            $Screen.WriteFixed($x + $num.Length, $keyY, $lbl, $slot - $num.Length, [byte]$t.KeyLabelFg, [byte]$t.KeyLabelBg, $script:AttrNone)
+        }
+        $Screen.WriteFixed(0, $h - 2, $status, $w, [byte]$t.StatusFg, [byte]$t.PanelBg, $script:AttrNone)
+        $Screen.Flush()
+
+        # --- input ------------------------------------------------------------
+        $ev = [Mc.Native.Input]::Read(200)
+        if ($null -eq $ev) { continue }
+
+        $key = $null
+        if ($ev.Kind -eq [Mc.Native.InputKind]::Mouse) {
+            if (-not $ev.Pressed) { continue }
+            if ($ev.Button -eq 'wheelup') { $top = [Math]::Max(0, $top - 3); continue }
+            if ($ev.Button -eq 'wheeldown') { $top = [Math]::Min([Math]::Max(0, $count - 1), $top + 3); continue }
+            if ($ev.Y -eq $keyY) {
+                $k = [int]([Math]::Floor($ev.X / $slot))
+                $key = 'f' + ([Math]::Max(0, [Math]::Min(9, $k)) + 1)
+            } else { continue }
+        } else {
+            $key = $ev.Key
+        }
+
+        $page = [Math]::Max(1, $rows - 1)
+        $lastTop = [Math]::Max(0, $count - 1)
+
+        switch ($key) {
+            'up'    { $top = [Math]::Max(0, $top - 1) }
+            'down'  { $top = [Math]::Min($lastTop, $top + 1) }
+            'pgup'  { $top = [Math]::Max(0, $top - $page) }
+            'pgdn'  { $top = [Math]::Min($lastTop, $top + $page) }
+            'home'  { $top = 0; $left = 0 }
+            'end'   { $top = [Math]::Max(0, $count - $page) }
+            'left'  { if (-not $wrap) { $left = [Math]::Max(0, $left - 8) } }
+            'right' { if (-not $wrap) { $left += 8 } }
+
+            'f2'    { $wrap = -not $wrap; $left = 0 }
+            'f4'    { $numbers = -not $numbers }
+
+            'f5' {
+                $answer = Read-McViewerPrompt $Screen $State 'Go to line' ''
+                if ($answer) {
+                    $n = 0
+                    if ([int]::TryParse($answer.Trim(), [ref]$n)) {
+                        $top = [Math]::Max(0, [Math]::Min($lastTop, $n - 1))
+                    }
+                }
+            }
+
+            'f7' {
+                $answer = Read-McViewerPrompt $Screen $State 'Search for' $search
+                if ($answer) {
+                    $search = $answer
+                    $found = Find-McViewerMatch $lines $search ($top)
+                    if ($found -ge 0) { $top = $found; $matchLine = $found }
+                    else { $matchLine = -1 }
+                }
+            }
+            'n' {
+                if ($search) {
+                    $found = Find-McViewerMatch $lines $search ($top + 1)
+                    if ($found -ge 0) { $top = $found; $matchLine = $found }
+                }
+            }
+            'S-n' {
+                if ($search) {
+                    $found = Find-McViewerMatch $lines $search ($top - 1) -Backwards
+                    if ($found -ge 0) { $top = $found; $matchLine = $found }
+                }
+            }
+            'N' {
+                if ($search) {
+                    $found = Find-McViewerMatch $lines $search ($top - 1) -Backwards
+                    if ($found -ge 0) { $top = $found; $matchLine = $found }
+                }
+            }
+
+            'f3'  { $Screen.Invalidate(); return }
+            'f10' { $Screen.Invalidate(); return }
+            'esc' { $Screen.Invalidate(); return }
+            'q'   { $Screen.Invalidate(); return }
+        }
+    }
+}
+
+function Find-McViewerMatch {
+    <# Case-insensitive plain-text search. Returns a line index, or -1. #>
+    param($Lines, [string] $Needle, [int] $From, [switch] $Backwards)
+
+    $count = $Lines.Count
+    if ($count -eq 0 -or [string]::IsNullOrEmpty($Needle)) { return -1 }
+
+    if ($Backwards) {
+        for ($i = [Math]::Min($From, $count - 1); $i -ge 0; $i--) {
+            if (([string]$Lines[$i]).IndexOf($Needle, [StringComparison]::OrdinalIgnoreCase) -ge 0) { return $i }
+        }
+        return -1
+    }
+
+    for ($i = [Math]::Max(0, $From); $i -lt $count; $i++) {
+        if (([string]$Lines[$i]).IndexOf($Needle, [StringComparison]::OrdinalIgnoreCase) -ge 0) { return $i }
+    }
+    -1
+}
+
+function Read-McViewerPrompt {
+    <# A one-line modal input box, for "go to line" and "search for". #>
+    param($Screen, [hashtable] $State, [string] $Title, [string] $Initial = '')
+
+    $t = $script:McTheme
+    $text = [string]$Initial
+
+    $width = [Math]::Min([Math]::Max(40, $Title.Length + 10), $Screen.Width - 4)
+    $height = 5
+    $x = [int](($Screen.Width - $width) / 2)
+    $y = [int](($Screen.Height - $height) / 2)
+
+    while ($true) {
+        $Screen.Fill($x, $y, $width, $height, ' ', [byte]$t.DialogFg, [byte]$t.DialogBg, $script:AttrNone)
+        $Screen.Box($x, $y, $width, $height, [byte]$t.DialogFg, [byte]$t.DialogBg, $true)
+
+        $caption = " $Title "
+        [void]$Screen.Write($x + [int](($width - $caption.Length) / 2), $y, $caption,
+            [byte]$t.DialogTitleFg, [byte]$t.DialogTitleBg, $script:AttrBold)
+
+        $Screen.WriteFixed($x + 2, $y + 2, $text, $width - 4, [byte]$t.CmdFg, [byte]$t.CmdBg, $script:AttrNone)
+        $Screen.Set($x + 2 + [Math]::Min($text.Length, $width - 5), $y + 2, ' ',
+            [byte]$t.CmdBg, [byte]$t.CmdFg, $script:AttrNone)
+        $Screen.Flush()
+
+        $ev = [Mc.Native.Input]::Read(200)
+        if ($null -eq $ev) { continue }
+        if ($ev.Kind -ne [Mc.Native.InputKind]::Key) { continue }
+
+        switch ($ev.Key) {
+            'enter'     { return $text }
+            'esc'       { return $null }
+            'backspace' { if ($text.Length -gt 0) { $text = $text.Substring(0, $text.Length - 1) } }
+            'space'     { $text += ' ' }
+            default {
+                if ($ev.Key.Length -eq 1) { $text += $ev.Key }
+            }
+        }
+    }
+}

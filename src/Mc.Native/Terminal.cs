@@ -58,6 +58,10 @@ namespace Mc.Native
             try { _savedCursorVisible = Console.CursorVisible; } catch { }
             try { Console.TreatControlCAsInput = true; } catch { }
 
+            // Raw key + mouse input. Must come after TreatControlCAsInput,
+            // whose setter rewrites the console mode we are about to save.
+            Input.Start(true);
+
             Emit("[?1049h");   // alternate screen buffer
             Emit("[?7l");      // disable autowrap: no scroll on the bottom-right cell
             Emit("[?25l");     // hide cursor
@@ -70,6 +74,11 @@ namespace Mc.Native
         public static void Shutdown()
         {
             if (!_initialised) return;
+
+            // Restore the console mode before anything else touches the
+            // terminal, so a shell-out gets ordinary cooked input back.
+            Input.Stop();
+
             try
             {
                 Emit("[0m");

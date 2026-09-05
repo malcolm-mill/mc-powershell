@@ -34,13 +34,13 @@ Source of truth for mc's defaults: `misc/mc.keymap` on the `reference` branch.
 |---|---|---|---|
 | F1 | Help | todo | |
 | F2 | User menu | different | Currently the drive/provider chooser — the project's headline feature earns the slot. User menu moves to the F9 menu bar. |
-| F3 | View | partial | Text only; no search, no hex |
+| F3 | View | done | Built-in viewer: encoding detection, wrap, line numbers, goto, search. Hex mode and markdown are later |
 | F4 | Edit | todo | Will shell out to EDITOR first |
 | F5 | Copy | todo | M3 |
 | F6 | Rename / move | todo | M3 |
 | F7 | Mkdir | todo | M3 |
 | F8 | Delete | todo | M3 |
-| F9 | Pull-down menu | different | Currently the sort menu |
+| F9 | Pull-down menu | done | Left / File / Command / Options / Right, keyboard and mouse |
 | F10 | Quit | done | |
 | Alt+F1 / Alt+F2 | Left / right drive chooser | todo | F2 covers the active panel |
 
@@ -48,7 +48,7 @@ Source of truth for mc's defaults: `misc/mc.keymap` on the `reference` branch.
 
 | Feature | Status | Notes |
 |---|---|---|
-| Sort by name / extension / size / mtime | done | F9 |
+| Sort by name / extension / size / mtime | done | Left and Right menus |
 | Reverse sort | done | Re-pick the same field |
 | Brief / long / custom listing | todo | M2 |
 | Columns per provider | done | **Beyond mc** — mc has no equivalent |
@@ -67,6 +67,17 @@ Source of truth for mc's defaults: `misc/mc.keymap` on the `reference` branch.
 | Same-session state (cwd, variables) | done | Commands run in this PowerShell session, so state persists without a pty subshell |
 | Macros for current file / other panel | todo | M4 |
 | Tab completion | todo | M4 |
+
+## Mouse
+
+| Feature | Status | Notes |
+|---|---|---|
+| Click the function key bar | done | **Beyond mc** -- mc supports mouse in panels but the key bar is the point here, since F-keys are widely hijacked |
+| Click a menu title / item | done | |
+| Click to focus a panel and select a row | done | |
+| Click the selected row to descend | done | Double-click works too |
+| Wheel scrolls the panel under the pointer | done | |
+| Mouse off Windows | todo | Needs an SGR mouse decoder for VT input; key-only until then |
 
 ## VFS
 

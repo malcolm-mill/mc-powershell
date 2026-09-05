@@ -39,3 +39,7 @@ jobs:
       - name: Safety guard test
         shell: pwsh
         run: ./tests/Guard.ps1
+
+      - name: Interface test
+        shell: pwsh
+        run: ./tests/Interface.ps1

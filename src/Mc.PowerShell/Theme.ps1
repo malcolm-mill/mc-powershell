@@ -33,6 +33,18 @@ $script:McTheme = @{
     CmdFg         = 7
     CmdBg         = 0
 
+    MenuFg        = 15     # menu bar, mc keeps it on the panel blue
+    MenuBg        = 4
+    MenuSelFg     = 0      # the open menu's title
+    MenuSelBg     = 6
+    MenuHotFg     = 11     # the hotkey letter
+
+    ViewFg        = 7
+    ViewBg        = 0
+    ViewLineNoFg  = 8
+    ViewMatchFg   = 0
+    ViewMatchBg   = 11
+
     KeyNumFg      = 7      # "1" in "1Help"
     KeyNumBg      = 0
     KeyLabelFg    = 0      # "Help" in "1Help"

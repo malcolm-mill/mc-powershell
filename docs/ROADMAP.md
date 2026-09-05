@@ -67,7 +67,9 @@ The hardest parity feature, and the one that makes it feel like mc.
 
 ## M5 — Viewer and editor  *(0.5)*
 
-- [ ] F3 viewer: search, hex mode, wrap toggle, huge-file streaming
+- [x] F3 viewer: encoding detection, wrap, line numbers, goto line, search,
+      binary detection (landed early -- see README)
+- [ ] Hex mode, huge-file streaming, markdown rendering, syntax colour
 - [ ] F4 shells out to `$env:EDITOR` by default
 - [ ] Internal editor is explicitly a separate project; do not let it eat this one
 
@@ -87,12 +89,23 @@ new sources rather than new plumbing.
 
 ---
 
+## Landed ahead of schedule
+
+Pulled forward because they change how everything else is used:
+
+- [x] Menu bar (was M7): Left / File / Command / Options / Right, keyboard and mouse
+- [x] Mouse support (not previously on the roadmap): clickable key bar, menu
+      and panels. Windows only; an SGR decoder for Linux/macOS is outstanding
+- [x] Built-in viewer (was M5), see above
+
+---
+
 ## M7 — Polish  *(1.0)*
 
 1.0 means: it is the file manager I use every day.
 
 - [ ] Skins / themes; read mc's `.ini` skin format
-- [ ] F2 user menu, F9 pull-down menu bar
+- [ ] F2 user menu
 - [ ] Find file, compare directories, external panelize
 - [ ] Publish to the PowerShell Gallery
 - [ ] `docs/COMPAT.md` scorecard filled in

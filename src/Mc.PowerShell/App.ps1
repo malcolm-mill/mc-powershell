@@ -77,8 +77,25 @@ function Show-McList {
 
         $Screen.Flush()
 
-        $key = [Mc.Native.Keys]::Read()
-        switch ($key) {
+        $ev = [Mc.Native.Input]::Read(200)
+        if ($null -eq $ev) { continue }
+
+        if ($ev.Kind -eq [Mc.Native.InputKind]::Mouse) {
+            if (-not $ev.Pressed) { continue }
+            if ($ev.Button -eq 'wheelup') { if ($index -gt 0) { $index-- }; continue }
+            if ($ev.Button -eq 'wheeldown') { if ($index -lt $Items.Count - 1) { $index++ }; continue }
+
+            $row = $ev.Y - ($y + 2)
+            $inside = $ev.X -ge $x -and $ev.X -lt $x + $width -and $row -ge 0 -and $row -lt $maxRows
+            if (-not $inside) { return $null }          # click outside dismisses
+            $i = $top + $row
+            if ($i -ge $Items.Count) { continue }
+            if ($i -eq $index -or $ev.Double) { return $Items[$i] }
+            $index = $i
+            continue
+        }
+
+        switch ($ev.Key) {
             'up'    { if ($index -gt 0) { $index-- } }
             'down'  { if ($index -lt $Items.Count - 1) { $index++ } }
             'home'  { $index = 0 }
@@ -92,62 +109,13 @@ function Show-McList {
     }
 }
 
-function Show-McViewer {
-    <# Minimal F3 viewer: enough to prove the modal-screen mechanics. #>
-    param($Screen, [hashtable] $State, [string] $Path)
-
-    $lines = @()
-    try {
-        $lines = [System.IO.File]::ReadAllLines($Path)
-    } catch {
-        $State.Message = "Cannot view: $($_.Exception.Message)"
-        return
-    }
-
-    $t = $script:McTheme
-    $top = 0
-    while ($true) {
-        $h = $Screen.Height
-        $w = $Screen.Width
-        $rows = $h - 2
-
-        $Screen.Clear([byte]$t.FileFg, [byte]$t.CmdBg)
-        $header = " View: $Path  ($($lines.Count) lines) "
-        $Screen.WriteFixed(0, 0, $header, $w, [byte]$t.TitleFg, [byte]$t.TitleBg, $script:AttrBold)
-
-        for ($r = 0; $r -lt $rows - 1; $r++) {
-            $i = $top + $r
-            $text = if ($i -lt $lines.Count) { $lines[$i] -replace "`t", '    ' } else { '' }
-            $Screen.WriteFixed(0, $r + 1, $text, $w, [byte]$t.FileFg, [byte]$t.CmdBg, $script:AttrNone)
-        }
-
-        $footer = ' Up/Down/PgUp/PgDn scroll   F10 or Esc closes '
-        $Screen.WriteFixed(0, $h - 1, $footer, $w, [byte]$t.KeyLabelFg, [byte]$t.KeyLabelBg, $script:AttrNone)
-        $Screen.Flush()
-
-        $key = [Mc.Native.Keys]::Read()
-        $page = [Math]::Max(1, $rows - 2)
-        switch ($key) {
-            'up'   { $top = [Math]::Max(0, $top - 1) }
-            'down' { $top = [Math]::Min([Math]::Max(0, $lines.Count - 1), $top + 1) }
-            'pgup' { $top = [Math]::Max(0, $top - $page) }
-            'pgdn' { $top = [Math]::Min([Math]::Max(0, $lines.Count - 1), $top + $page) }
-            'home' { $top = 0 }
-            'end'  { $top = [Math]::Max(0, $lines.Count - $page) }
-            'esc'  { $Screen.Invalidate(); return }
-            'f3'   { $Screen.Invalidate(); return }
-            'f10'  { $Screen.Invalidate(); return }
-        }
-    }
-}
-
 function Show-McDriveChooser {
     <#
       The demo of the whole thesis: pick any PSDrive -- filesystem, registry,
       environment, certificates, or anything a module mounted -- and the panel
       shows it with columns appropriate to that provider.
     #>
-    param($Screen, [hashtable] $State)
+    param($Screen, [hashtable] $State, [string] $Side)
 
     $drives = @(Get-PSDrive -ErrorAction SilentlyContinue |
         Where-Object { $_.Provider } |
@@ -159,7 +127,7 @@ function Show-McDriveChooser {
     }
     if ($null -eq $choice) { return }
 
-    $panel = Get-McActivePanel $State
+    $panel = if ($Side) { $State[$Side] } else { Get-McActivePanel $State }
     $target = if ($choice.Root -and (Test-Path -LiteralPath $choice.Root -ErrorAction SilentlyContinue)) {
         $choice.Root
     } else {
@@ -173,7 +141,7 @@ function Show-McDriveChooser {
 }
 
 function Show-McSortMenu {
-    param($Screen, [hashtable] $State)
+    param($Screen, [hashtable] $State, [string] $Side)
 
     $fields = @(
         @{ Label = 'Name';        Field = [Mc.Native.SortField]::Name }
@@ -185,7 +153,8 @@ function Show-McSortMenu {
 
     $choice = Show-McList $Screen $State 'Sort order' $fields { param($f) $f.Label }
     if ($null -eq $choice) { return }
-    Set-McPanelSort (Get-McActivePanel $State) $choice.Field
+    $panel = if ($Side) { $State[$Side] } else { Get-McActivePanel $State }
+    Set-McPanelSort $panel $choice.Field
     $Screen.Invalidate()
 }
 
@@ -473,6 +442,81 @@ function Invoke-McInternalCommand {
     return $true
 }
 
+# --- mouse -----------------------------------------------------------------
+
+function Invoke-McMouse {
+    <#
+      Route a click to whatever was painted at that cell. Hit-testing uses the
+      same Get-McLayout the renderer drew from, so the two cannot disagree.
+
+      The function key bar is clickable on purpose: F1-F10 are widely hijacked
+      by the OS or terminal, and mc's key bar has always looked like buttons.
+    #>
+    param([hashtable] $State, $Screen, $Event)
+
+    $L = Get-McLayout $Screen $State
+    $x = [int]$Event.X
+    $y = [int]$Event.Y
+
+    # --- wheel scrolls whichever panel is under the pointer -----------------
+    if ($Event.Button -eq 'wheelup' -or $Event.Button -eq 'wheeldown') {
+        if ($y -ge $L.PanelY -and $y -lt $L.PanelY + $L.PanelH) {
+            $side = if ($x -lt $L.RightX) { 'Left' } else { 'Right' }
+            $delta = if ($Event.Button -eq 'wheelup') { -3 } else { 3 }
+            Move-McPanelCursor $State[$side] $delta
+        }
+        return
+    }
+
+    if (-not $Event.Pressed) { return }
+
+    # --- function key bar ---------------------------------------------------
+    if ($y -eq $L.KeyY) {
+        $slot = [int]([Math]::Floor($x / $L.KeySlot))
+        if ($slot -lt 0) { $slot = 0 }
+        if ($slot -gt 9) { $slot = 9 }
+        Invoke-McKey $State $Screen ('f' + ($slot + 1))
+        return
+    }
+
+    # --- menu bar -----------------------------------------------------------
+    if ($y -eq $L.MenuY) {
+        for ($i = 0; $i -lt $L.MenuHits.Count; $i++) {
+            $hit = $L.MenuHits[$i]
+            if ($x -ge $hit.X -and $x -lt $hit.X + $hit.W) {
+                Show-McMenu $Screen $State $i
+                return
+            }
+        }
+        return
+    }
+
+    # --- command line -------------------------------------------------------
+    if ($y -eq $L.CmdY) { return }
+
+    # --- panels -------------------------------------------------------------
+    if ($y -ge $L.PanelY -and $y -lt $L.PanelY + $L.PanelH) {
+        $side = if ($x -lt $L.RightX) { 'Left' } else { 'Right' }
+        if ($State.ActiveSide -ne $side) { $State.ActiveSide = $side }
+
+        $panel = $State[$side]
+        $row = $y - $L.PanelRowY
+        if ($row -lt 0 -or $row -ge $L.PanelRows) { return }
+
+        $index = $panel.Top + $row
+        if ($index -ge $panel.Entries.Count) { return }
+
+        # Click to select; click again (or double-click) to descend, which is
+        # what mc does and what a file manager should feel like.
+        $alreadyThere = ($panel.Index -eq $index)
+        Set-McPanelCursor $panel $index
+        if ($alreadyThere -or $Event.Double) {
+            Invoke-McKey $State $Screen 'enter'
+        }
+        return
+    }
+}
+
 # --- keymap ----------------------------------------------------------------
 
 $script:McKeymap = @{
@@ -510,19 +554,12 @@ $script:McKeymap = @{
                     }
 
     'f2'        = { param($S, $Scr) Show-McDriveChooser $Scr $S }
-    'f3'        = { param($S, $Scr)
-                        $e = Get-McPanelCurrent (Get-McActivePanel $S)
-                        if ($e -and -not $e.IsContainer -and $e.Key -and (Test-Path -LiteralPath $e.Key -PathType Leaf -ErrorAction SilentlyContinue)) {
-                            Show-McViewer $Scr $S $e.Key
-                        } else {
-                            $S.Message = 'F3 views files only (for now)'
-                        }
-                    }
+    'f3'        = { param($S, $Scr) Invoke-McViewCurrent $Scr $S }
     'f5'        = { param($S, $Scr) Invoke-McGuardedStub $S 'Copy' }
     'f6'        = { param($S, $Scr) Invoke-McGuardedStub $S 'Rename/move' }
     'f7'        = { param($S, $Scr) Invoke-McGuardedStub $S 'Mkdir' }
     'f8'        = { param($S, $Scr) Invoke-McGuardedStub $S 'Delete' }
-    'f9'        = { param($S, $Scr) Show-McSortMenu $Scr $S }
+    'f9'        = { param($S, $Scr) Show-McMenu $Scr $S 0 }
     'f10'       = { param($S, $Scr) $S.Running = $false }
 
     'C-o'       = { param($S, $Scr) Invoke-McSubshell $Scr $S }
@@ -613,11 +650,18 @@ function Start-Mc {
             }
 
             # Timeout so the loop still notices a window resize while idle.
-            $key = [Mc.Native.Keys]::ReadTimeout(200)
-            if ($null -eq $key) { continue }
+            $ev = [Mc.Native.Input]::Read(200)
+            if ($null -eq $ev) { continue }
 
-            $state.Message = $null
-            Invoke-McKey $state $screen $key
+            if ($ev.Kind -eq [Mc.Native.InputKind]::Resize) {
+                $screen.Invalidate()
+            } elseif ($ev.Kind -eq [Mc.Native.InputKind]::Mouse) {
+                $state.Message = $null
+                Invoke-McMouse $state $screen $ev
+            } else {
+                $state.Message = $null
+                Invoke-McKey $state $screen $ev.Key
+            }
             $dirty = $true
         }
     } finally {

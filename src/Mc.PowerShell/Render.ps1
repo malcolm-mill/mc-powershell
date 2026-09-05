@@ -187,52 +187,111 @@ function Write-McPanel {
     $Screen.WriteFixed($interiorX, $statusY, $status, $interiorW, [byte]$t.StatusFg, $bg, $script:AttrNone)
 }
 
-function Write-McFrame {
-    param(
-        $Screen,
-        [hashtable] $State
-    )
+function Get-McLayout {
+    <#
+      The single source of truth for where everything sits on screen. The
+      renderer draws from it and the mouse hit-tests against it, so a click can
+      never land somewhere different from what was painted.
+    #>
+    param($Screen, [hashtable] $State)
 
-    $t = $script:McTheme
     $w = $Screen.Width
     $h = $Screen.Height
 
+    $menuY = 0
+    $keyY = $h - 1
+    $cmdY = $h - 2
+
+    # The output pane takes rows from the panels, never from the menu bar,
+    # command line or key bar.
+    $outputLines = [int]$State.OutputLines
+    $panelY = $menuY + 1
+    $panelH = $cmdY - $panelY - $outputLines
+    if ($panelH -lt 5) {
+        $panelH = [Math]::Max(1, $cmdY - $panelY)
+        $outputLines = [Math]::Max(0, $cmdY - $panelY - $panelH)
+    }
+
+    $leftW = [int]($w / 2)
+
+    $hits = @()
+    $x = 1
+    foreach ($m in (Get-McMenus)) {
+        $label = " $($m.Title) "
+        $hits += @{ Title = $m.Title; X = $x; W = $label.Length }
+        $x += $label.Length + 2
+    }
+
+    @{
+        Width       = $w
+        Height      = $h
+        MenuY       = $menuY
+        MenuHits    = $hits
+        PanelY      = $panelY
+        PanelH      = $panelH
+        LeftX       = 0
+        LeftW       = $leftW
+        RightX      = $leftW
+        RightW      = ($w - $leftW)
+        OutputY     = ($panelY + $panelH)
+        OutputLines = $outputLines
+        CmdY        = $cmdY
+        KeyY        = $keyY
+        KeySlot     = [Math]::Max(1, [int]($w / 10))
+
+        # Entry rows begin below the panel's top border and column header,
+        # matching Write-McPanel exactly.
+        PanelRowY   = ($panelY + 2)
+        PanelRows   = [Math]::Max(0, $panelH - 4)
+    }
+}
+
+function Write-McFrame {
+    param(
+        $Screen,
+        [hashtable] $State,
+        [int] $OpenMenuIndex = -1
+    )
+
+    $t = $script:McTheme
+    $L = Get-McLayout $Screen $State
+    $w = $L.Width
+    $h = $L.Height
+
     $Screen.Clear([byte]$t.FileFg, [byte]$t.CmdBg)
 
-    # mc's "output lines": the pane takes rows from the panels, never from the
-    # command line or key bar, and the panels keep a workable minimum.
-    $outputLines = [int]$State.OutputLines
-    $panelH = $h - 2 - $outputLines
-    if ($panelH -lt 5) {
-        $panelH = [Math]::Min(5, [Math]::Max(1, $h - 2))
-        $outputLines = [Math]::Max(0, $h - 2 - $panelH)
+    # --- menu bar ----------------------------------------------------------
+    $Screen.Fill(0, $L.MenuY, $w, 1, ' ', [byte]$t.MenuFg, [byte]$t.MenuBg, $script:AttrNone)
+    for ($i = 0; $i -lt $L.MenuHits.Count; $i++) {
+        $hit = $L.MenuHits[$i]
+        $open = ($i -eq $OpenMenuIndex)
+        $fg = if ($open) { [byte]$t.MenuSelFg } else { [byte]$t.MenuFg }
+        $bg = if ($open) { [byte]$t.MenuSelBg } else { [byte]$t.MenuBg }
+        [void]$Screen.Write($hit.X, $L.MenuY, " $($hit.Title) ", $fg, $bg, $script:AttrBold)
     }
-    $leftW = [int]($w / 2)
-    $rightW = $w - $leftW
 
-    Write-McPanel $Screen $State.Left 0 0 $leftW $panelH ($State.ActiveSide -eq 'Left')
-    Write-McPanel $Screen $State.Right $leftW 0 $rightW $panelH ($State.ActiveSide -eq 'Right')
+    # --- panels ------------------------------------------------------------
+    Write-McPanel $Screen $State.Left  $L.LeftX  $L.PanelY $L.LeftW  $L.PanelH ($State.ActiveSide -eq 'Left')
+    Write-McPanel $Screen $State.Right $L.RightX $L.PanelY $L.RightW $L.PanelH ($State.ActiveSide -eq 'Right')
 
     # --- output pane -------------------------------------------------------
-    if ($outputLines -gt 0) {
-        $paneY = $panelH
-        $Screen.Fill(0, $paneY, $w, $outputLines, ' ', [byte]$t.CmdFg, [byte]$t.CmdBg, $script:AttrNone)
+    if ($L.OutputLines -gt 0) {
+        $Screen.Fill(0, $L.OutputY, $w, $L.OutputLines, ' ', [byte]$t.CmdFg, [byte]$t.CmdBg, $script:AttrNone)
 
         $buffer = $State.Output
         $count = $buffer.Count
-        $first = [Math]::Max(0, $count - $outputLines)
-        for ($r = 0; $r -lt $outputLines; $r++) {
+        $first = [Math]::Max(0, $count - $L.OutputLines)
+        for ($r = 0; $r -lt $L.OutputLines; $r++) {
             $i = $first + $r
             $line = if ($i -lt $count) { [string]$buffer[$i] } else { '' }
             $line = $line -replace "`t", '    '
-            $Screen.WriteFixed(0, $paneY + $r, $line, $w, [byte]$t.CmdFg, [byte]$t.CmdBg, $script:AttrNone)
+            $Screen.WriteFixed(0, $L.OutputY + $r, $line, $w, [byte]$t.CmdFg, [byte]$t.CmdBg, $script:AttrNone)
         }
     }
 
     # --- command line ------------------------------------------------------
-    $cmdY = $h - 2
-    $active = $State.($State.ActiveSide)
-    $Screen.Fill(0, $cmdY, $w, 1, ' ', [byte]$t.CmdFg, [byte]$t.CmdBg, $script:AttrNone)
+    $active = $State[$State.ActiveSide]
+    $Screen.Fill(0, $L.CmdY, $w, 1, ' ', [byte]$t.CmdFg, [byte]$t.CmdBg, $script:AttrNone)
 
     # Mode badge. The user must never have to guess whether mc can write, so
     # this is always on screen and read-write is deliberately alarming.
@@ -240,31 +299,30 @@ function Write-McFrame {
     $badge = if ($writable) { ' RW ' } else { ' RO ' }
     $badgeFg = if ($writable) { [byte]$t.ModeRwFg } else { [byte]$t.ModeRoFg }
     $badgeBg = if ($writable) { [byte]$t.ModeRwBg } else { [byte]$t.ModeRoBg }
-    $Screen.WriteFixed(0, $cmdY, $badge, [Math]::Min($badge.Length, $w), $badgeFg, $badgeBg, $script:AttrBold)
+    $Screen.WriteFixed(0, $L.CmdY, $badge, [Math]::Min($badge.Length, $w), $badgeFg, $badgeBg, $script:AttrBold)
 
     $promptX = [Math]::Min($badge.Length + 1, [Math]::Max(0, $w - 1))
     $prompt = "$($active.Location)> "
-    $Screen.WriteFixed($promptX, $cmdY, $prompt, [Math]::Min($prompt.Length, [Math]::Max(0, $w - $promptX)), [byte]$t.DirFg, [byte]$t.CmdBg, $script:AttrBold)
+    $Screen.WriteFixed($promptX, $L.CmdY, $prompt, [Math]::Min($prompt.Length, [Math]::Max(0, $w - $promptX)), [byte]$t.DirFg, [byte]$t.CmdBg, $script:AttrBold)
     $cmdX = [Math]::Min($promptX + $prompt.Length, $w - 1)
-    [void]$Screen.Write($cmdX, $cmdY, $State.CommandLine, [byte]$t.CmdFg, [byte]$t.CmdBg, $script:AttrNone)
-    $Screen.Set($cmdX + $State.CommandLine.Length, $cmdY, ' ', [byte]$t.CmdBg, [byte]$t.CmdFg, $script:AttrNone)
+    [void]$Screen.Write($cmdX, $L.CmdY, $State.CommandLine, [byte]$t.CmdFg, [byte]$t.CmdBg, $script:AttrNone)
+    $Screen.Set($cmdX + $State.CommandLine.Length, $L.CmdY, ' ', [byte]$t.CmdBg, [byte]$t.CmdFg, $script:AttrNone)
 
     # --- function key bar --------------------------------------------------
-    $keyY = $h - 1
     $labels = @(
         '1', 'Help', '2', 'Drive', '3', 'View', '4', 'Edit', '5', 'Copy',
-        '6', 'RenMov', '7', 'Mkdir', '8', 'Delete', '9', 'Sort', '10', 'Quit'
+        '6', 'RenMov', '7', 'Mkdir', '8', 'Delete', '9', 'PullDn', '10', 'Quit'
     )
-    $Screen.Fill(0, $keyY, $w, 1, ' ', [byte]$t.KeyLabelFg, [byte]$t.KeyLabelBg, $script:AttrNone)
-    $slot = [int]($w / 10)
+    $Screen.Fill(0, $L.KeyY, $w, 1, ' ', [byte]$t.KeyLabelFg, [byte]$t.KeyLabelBg, $script:AttrNone)
     for ($i = 0; $i -lt 10; $i++) {
-        $x = $i * $slot
+        $x = $i * $L.KeySlot
         $num = $labels[$i * 2]
         $lbl = $labels[$i * 2 + 1]
-        [void]$Screen.Write($x, $keyY, $num, [byte]$t.KeyNumFg, [byte]$t.KeyNumBg, $script:AttrNone)
-        $Screen.WriteFixed($x + $num.Length, $keyY, $lbl, $slot - $num.Length, [byte]$t.KeyLabelFg, [byte]$t.KeyLabelBg, $script:AttrNone)
+        [void]$Screen.Write($x, $L.KeyY, $num, [byte]$t.KeyNumFg, [byte]$t.KeyNumBg, $script:AttrNone)
+        $Screen.WriteFixed($x + $num.Length, $L.KeyY, $lbl, $L.KeySlot - $num.Length, [byte]$t.KeyLabelFg, [byte]$t.KeyLabelBg, $script:AttrNone)
     }
+
     if ($State.Message) {
-        $Screen.WriteFixed(0, $keyY, " $($State.Message) ", $w, [byte]$t.MarkedFg, [byte]$t.KeyNumBg, $script:AttrBold)
+        $Screen.WriteFixed(0, $L.KeyY, " $($State.Message) ", $w, [byte]$t.MarkedFg, [byte]$t.KeyNumBg, $script:AttrBold)
     }
 }

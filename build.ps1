@@ -27,7 +27,7 @@ if (-not $SkipCopy) {
         Copy-Item -LiteralPath $dll -Destination $dest -Force
         Write-Host "Staged $dest" -ForegroundColor Green
     } catch {
-        Write-Warning "Could not copy the assembly (a running session may hold it): $($_.Exception.Message)"
+        Write-Host "Staging skipped; the module will load the build output directly." -ForegroundColor DarkGray
     }
 }
 
