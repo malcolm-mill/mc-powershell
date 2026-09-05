@@ -38,6 +38,22 @@ Requires PowerShell 7.2+ and the .NET SDK (8 or later) to build the native layer
 ./mc.ps1 -Left C:\projects -Right HKLM:\SOFTWARE
 ```
 
+### Run it from anywhere
+
+```powershell
+./tools/Install-McCommand.ps1
+```
+
+Adds an `mc` function to your PowerShell profile pointing at this checkout, so
+`mc` works from any prompt and opens the panels in the directory you are in.
+Arguments forward, so `mc -Left C:\projects -Right Env:` behaves the same.
+
+A profile function rather than a PATH entry: nothing else gets shadowed,
+named arguments forward cleanly, and it is one delimited block that is easy to
+read and to remove. Re-running the script rewrites the block rather than adding
+another; `-Uninstall` takes it out. Move the checkout and run it again, because
+the path it writes is absolute.
+
 Both test suites run headlessly -- no terminal needed, because the panel is a
 pure state machine and the renderer can paint to a text buffer:
 
@@ -47,6 +63,7 @@ pure state machine and the renderer can paint to a text buffer:
 ./tests/Guard.ps1        # safety modes and the command-line screen
 ./tests/Interface.ps1    # layout, menu hit boxes, mouse routing, viewer
 ./tests/Keys.ps1         # raw key event -> canonical name -> app response
+./tests/Lint.ps1         # parse, Split-Path misuse, export drift, CI wiring
 ```
 
 ## Safety: read-only by default

@@ -43,6 +43,10 @@ jobs:
         shell: pwsh
         run: ./tests/Smoke.ps1
 
+      - name: Lint
+        shell: pwsh
+        run: ./tests/Lint.ps1
+
       - name: Key translation test
         shell: pwsh
         run: ./tests/Keys.ps1
