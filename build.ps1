@@ -33,3 +33,5 @@ if (-not $SkipCopy) {
 
 Write-Host ''
 Write-Host 'Run it with:  ./mc.ps1' -ForegroundColor Yellow
+Write-Host 'If this session has already run mc, start a new PowerShell window --' -ForegroundColor DarkGray
+Write-Host '.NET cannot unload an assembly, so a running session keeps the old build.' -ForegroundColor DarkGray

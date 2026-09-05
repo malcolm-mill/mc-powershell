@@ -31,12 +31,29 @@ if (-not $nativePath) {
     throw "Mc.Native.dll not found. Run ./build.ps1 first. Looked in:`n  $($candidates -join "`n  ")"
 }
 
-if (-not ('Mc.Native.Screen' -as [type])) {
+# Every type the module needs. Checking the whole set matters: guarding on one
+# type meant a session holding an OLDER Mc.Native skipped the load and then
+# failed later on a type that build did not have.
+$requiredTypes = @(
+    'Mc.Native.Screen'
+    'Mc.Native.Terminal'
+    'Mc.Native.Keys'
+    'Mc.Native.Input'
+    'Mc.Native.InputEvent'
+    'Mc.Native.PanelEntry'
+    'Mc.Native.Fs'
+)
+
+$missing = @($requiredTypes | Where-Object { -not ($_ -as [type]) })
+
+if ($missing.Count -eq $requiredTypes.Count) {
+    # Nothing loaded yet in this session, so load the build.
+    #
     # .NET locks an assembly for the life of the process, so loading the build
     # output directly would make the next `dotnet build` fail while any session
-    # still holds it. Load a shadow copy instead. The directory is keyed on the
-    # build timestamp, so repeated loads of one build share it rather than
-    # littering a directory per session.
+    # still holds it. Load a shadow copy instead, keyed on the build timestamp
+    # so repeated loads of one build share a directory rather than littering
+    # one per session.
     $shadowRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'mc-powershell-native'
     $shadowDir = Join-Path $shadowRoot ($newest.Ticks.ToString())
     $shadow = Join-Path $shadowDir 'Mc.Native.dll'
@@ -46,7 +63,6 @@ if (-not ('Mc.Native.Screen' -as [type])) {
         Copy-Item -LiteralPath $nativePath -Destination $shadow -Force
     }
 
-    # Best-effort tidy of shadow copies from older builds.
     try {
         Get-ChildItem -LiteralPath $shadowRoot -Directory -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -ne $newest.Ticks.ToString() } |
@@ -54,6 +70,18 @@ if (-not ('Mc.Native.Screen' -as [type])) {
     } catch { }
 
     Add-Type -Path $shadow
+    $missing = @($requiredTypes | Where-Object { -not ($_ -as [type]) })
+}
+
+if ($missing.Count -gt 0) {
+    throw @"
+This PowerShell session already has an older Mc.Native.dll loaded, and .NET
+cannot unload an assembly once it is in a process. Missing from the loaded
+build: $($missing -join ', ')
+
+Open a new PowerShell window and run ./mc.ps1 again. The build itself is fine --
+only this session is stuck on the old one.
+"@
 }
 
 # --- script parts ----------------------------------------------------------
