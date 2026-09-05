@@ -517,6 +517,21 @@ function Invoke-McMouse {
     }
 }
 
+function Invoke-McBackspace {
+    <#
+      Delete a character from the command line, or go up a directory when the
+      line is empty. The deletion is mc's [input] behaviour; going up is ours
+      (mc uses Ctrl+PgUp, which is also bound).
+    #>
+    param([hashtable] $State)
+
+    if ($State.CommandLine.Length -gt 0) {
+        $State.CommandLine = $State.CommandLine.Substring(0, $State.CommandLine.Length - 1)
+        return
+    }
+    Invoke-McPanelUp (Get-McActivePanel $State)
+}
+
 # --- keymap ----------------------------------------------------------------
 
 $script:McKeymap = @{
@@ -528,17 +543,18 @@ $script:McKeymap = @{
     'end'       = { param($S, $Scr) $p = Get-McActivePanel $S; Set-McPanelCursor $p ($p.Entries.Count - 1) }
 
     'tab'       = { param($S, $Scr) $S.ActiveSide = if ($S.ActiveSide -eq 'Left') { 'Right' } else { 'Left' } }
-    # Context-sensitive, like Enter: edit the command line when there is one,
-    # otherwise navigate. This MUST be decided inside the handler -- the keymap
-    # is consulted before command-line editing, so anything bound here
-    # unconditionally shadows the command line completely.
-    'backspace' = { param($S, $Scr)
-                        if ($S.CommandLine.Length -gt 0) {
-                            $S.CommandLine = $S.CommandLine.Substring(0, $S.CommandLine.Length - 1)
-                        } else {
-                            Invoke-McPanelUp (Get-McActivePanel $S)
-                        }
-                    }
+    # mc binds Backspace only in [input], where it deletes a character; its
+    # [panel] section has no Backspace at all and uses CdParent = ctrl-pgup to
+    # go up. We keep the deletion, which is mc's behaviour, and add navigating
+    # up when the line is empty -- a deliberate extra, recorded in COMPAT.md.
+    #
+    # The choice MUST be made inside the handler: the keymap is consulted
+    # before command-line editing, so anything bound here unconditionally
+    # shadows the command line completely.
+    'backspace' = { param($S, $Scr) Invoke-McBackspace $S }
+    'C-h'       = { param($S, $Scr) Invoke-McBackspace $S }   # mc: [input] Backspace = backspace; ctrl-h
+
+    'C-pgup'    = { param($S, $Scr) Invoke-McPanelUp (Get-McActivePanel $S) }   # mc: [panel] CdParent
 
     'ins'       = { param($S, $Scr) Switch-McPanelMark (Get-McActivePanel $S) -Advance }
 

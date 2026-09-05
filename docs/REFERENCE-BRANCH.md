@@ -28,7 +28,7 @@ git worktree add ../mc-reference reference
 | Command dispatch (what the F-keys actually call) | `src/filemanager/cmd.c` |
 | Find-file dialog and panelize | `src/filemanager/find.c` |
 | Key names and the keymap parser | `src/keymap.c` |
-| Default keybindings | `misc/mc.keymap` |
+| Default keybindings | `misc/mc.default.keymap` (`misc/mc.keymap` is just a pointer to it) |
 | VFS interface — the shape our source contract echoes | `lib/vfs/interface.c`, `lib/vfs/vfs.c` |
 | Path handling across VFS layers | `lib/vfs/path.c` |
 | Directory entry caching | `lib/vfs/direntry.c` |

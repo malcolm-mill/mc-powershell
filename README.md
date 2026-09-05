@@ -74,7 +74,8 @@ exactly what is and is not caught.
 |---|---|
 | Arrows, PgUp/PgDn, Home/End | Move the cursor |
 | Enter | Descend into the highlighted container |
-| Backspace | Go up one level |
+| Ctrl+PgUp | Go up one level (mc's binding) |
+| Backspace | Delete a command-line character; go up one level when it is empty |
 | Tab | Switch panel |
 | Insert | Mark / unmark, advance |
 | F2 | **Change drive or provider** -- pick any PSDrive |

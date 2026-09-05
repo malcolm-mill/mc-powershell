@@ -4,7 +4,8 @@ Every Midnight Commander keybinding, and where this project stands on it.
 This file is the spec. Keep it honest — "different" and "won't do" are
 legitimate answers, silence is not.
 
-Source of truth for mc's defaults: `misc/mc.keymap` on the `reference` branch.
+Source of truth for mc's defaults: `misc/mc.default.keymap` on the `reference`
+branch. (`misc/mc.keymap` is only a one-line pointer to it.)
 
 Windows is the only supported platform; anything Windows-specific is recorded
 here so the cost of unfreezing the others stays visible. See
@@ -20,7 +21,10 @@ here so the cost of unfreezing the others stays visible. See
 | PgUp / PgDn | Page | done | |
 | Home / End | First / last entry | done | |
 | Enter | Descend, or execute file | partial | Descends; no execute yet |
-| Backspace | Parent directory | done | |
+| Ctrl+PgUp | Parent directory (`[panel] CdParent`) | done | mc's actual binding |
+| Backspace | Delete a character on the command line (`[input]`) | done | |
+| Backspace on an empty command line | *no mc equivalent* | different | Ours: goes up a directory. mc's `[panel]` binds no Backspace at all |
+| Ctrl+H | Same as Backspace (`[input]`) | done | |
 | Tab | Other panel | done | |
 | Insert | Mark and advance | done | |
 | Plus / Minus / Star | Select / unselect / invert by pattern | todo | |

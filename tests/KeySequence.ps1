@@ -75,6 +75,44 @@ Assert-That 'cursor restored onto src' {
     (Get-McPanelCurrent $state.Left).Name -eq 'src'
 }
 
+Write-Host "`nParent directory (mc's CdParent)" -ForegroundColor Cyan
+# mc's [panel] section has no Backspace binding; CdParent is ctrl-pgup. Ours
+# adds Backspace-on-an-empty-line as an extra, so both must work.
+$state.CommandLine = ''
+$deep = Join-Path $repo 'src'
+[void](Set-McPanelLocation $state.Left $deep)
+Invoke-McKey $state $screen 'C-pgup'
+Assert-That 'Ctrl+PgUp goes up a directory' { $state.Left.Location -eq $repo }
+Assert-That 'and leaves the cursor on where we came from' {
+    (Get-McPanelCurrent $state.Left).Name -eq 'src'
+}
+
+[void](Set-McPanelLocation $state.Left $deep)
+$state.CommandLine = 'gci'
+Invoke-McKey $state $screen 'C-pgup'
+Assert-That 'Ctrl+PgUp navigates even with text on the command line' {
+    $state.Left.Location -eq $repo -and $state.CommandLine -eq 'gci'
+}
+$state.CommandLine = ''
+
+Invoke-McKey $state $screen 'C-h'
+Assert-That 'Ctrl+H on an empty line goes up, like Backspace' {
+    $state.Left.Location -ne $repo
+}
+[void](Set-McPanelLocation $state.Left $repo)
+$state.CommandLine = 'abc'
+Invoke-McKey $state $screen 'C-h'
+Assert-That 'Ctrl+H deletes a character, as mc binds it in [input]' {
+    $state.CommandLine -eq 'ab'
+}
+$state.CommandLine = ''
+
+# Hand the state back as this section found it: the cursor on src, which the
+# marking checks below rely on.
+for ($i = 0; $i -lt $state.Left.Entries.Count; $i++) {
+    if ($state.Left.Entries[$i].Name -eq 'src') { Set-McPanelCursor $state.Left $i; break }
+}
+
 Write-Host "`nPanel switching and marking" -ForegroundColor Cyan
 Invoke-McKey $state $screen 'tab'
 Assert-That 'Tab activates the right panel' { $state.ActiveSide -eq 'Right' }
