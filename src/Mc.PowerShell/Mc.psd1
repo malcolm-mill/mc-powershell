@@ -14,6 +14,18 @@
         'Update-McPanel'
         'Write-McFrame'
         'Get-McColumnLayout'
+        'Invoke-McKey'
+        'Get-McPanelCurrent'
+        'Move-McPanelCursor'
+        'Set-McPanelCursor'
+        'Set-McPanelLocation'
+        'Invoke-McPanelEnter'
+        'Invoke-McPanelUp'
+        'Switch-McPanelMark'
+        'Set-McPanelSort'
+        'Get-McPanelStats'
+        'Write-McPanel'
+        'Get-McProp'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()

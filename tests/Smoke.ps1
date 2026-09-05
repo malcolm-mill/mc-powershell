@@ -7,8 +7,9 @@
 param(
     [int] $Width = 110,
     [int] $Height = 26,
-    [string] $Left = 'C:\projects',
-    [string] $Right = 'Env:\'
+    # Default to the repo root so this runs unchanged on CI and on Linux/macOS.
+    [string] $Left = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
+    [string] $Right = 'Env:'
 )
 
 $ErrorActionPreference = 'Stop'

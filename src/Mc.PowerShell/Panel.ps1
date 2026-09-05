@@ -135,7 +135,7 @@ function Invoke-McPanelEnter {
 
     # Going up: put the cursor on the directory we came from.
     $selectName = $null
-    if ($entry.IsUp) { $selectName = Split-Path -Leaf $Panel.Location }
+    if ($entry.IsUp) { $selectName = Get-McLeafName $Panel.Location }
 
     [void](Set-McPanelLocation $Panel $target -SelectName $selectName)
     return $null
@@ -146,7 +146,7 @@ function Invoke-McPanelUp {
     if (-not $Panel.Source.Parent) { return }
     $parent = & $Panel.Source.Parent $Panel.Location
     if ([string]::IsNullOrEmpty($parent)) { return }
-    $leaf = Split-Path -Leaf $Panel.Location
+    $leaf = Get-McLeafName $Panel.Location
     [void](Set-McPanelLocation $Panel $parent -SelectName $leaf)
 }
 

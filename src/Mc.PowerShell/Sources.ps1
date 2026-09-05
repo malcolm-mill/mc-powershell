@@ -85,6 +85,33 @@ function Get-McProp {
     try { return $prop.Value } catch { return $null }
 }
 
+function Get-McParentPath {
+    <#
+      Parent of a provider path, or $null at a root.
+
+      Note: "Split-Path -LiteralPath X -Parent" is NOT valid -- -LiteralPath
+      cannot be combined with the -Parent/-Leaf switches, and PowerShell reports
+      it as an unresolvable parameter set. -LiteralPath on its own already
+      returns the parent, which is also what we want for Env:\ and HKLM:\.
+    #>
+    param([string] $Path)
+    if ([string]::IsNullOrEmpty($Path)) { return $null }
+    $parent = try { Split-Path -LiteralPath $Path } catch { $null }
+    if ([string]::IsNullOrEmpty($parent)) { return $null }
+    $parent
+}
+
+function Get-McLeafName {
+    <# Last segment of a path, without Split-Path's wildcard expansion. #>
+    param([string] $Path)
+    if ([string]::IsNullOrEmpty($Path)) { return '' }
+    $seps = [char[]]@([char]92, [char]47)   # backslash, forward slash
+    $trimmed = $Path.TrimEnd($seps)
+    $i = $trimmed.LastIndexOfAny($seps)
+    if ($i -lt 0) { return $trimmed }
+    $trimmed.Substring($i + 1)
+}
+
 # ---------------------------------------------------------------------------
 # Source 1: the filesystem. Enumeration happens in C# because this is the one
 # listing that has to stay fast on a 50k-entry directory.
@@ -108,9 +135,7 @@ Register-McPanelSource -Source @{
 
     Parent = {
         param($Location)
-        $p = Split-Path -LiteralPath $Location -Parent
-        if ([string]::IsNullOrEmpty($p)) { return $null }
-        $p
+        Get-McParentPath $Location
     }
 
     Descend = {
@@ -233,7 +258,7 @@ Register-McPanelSource -Source @{
 
         $entries = [System.Collections.Generic.List[Mc.Native.PanelEntry]]::new()
 
-        $parent = try { Split-Path -LiteralPath $Location -Parent } catch { $null }
+        $parent = Get-McParentPath $Location
         if (-not [string]::IsNullOrEmpty($parent)) {
             $entries.Add((New-McEntry -Name '..' -Key $parent -IsContainer $true -IsUp $true -Tag 'UP'))
         }
@@ -274,9 +299,7 @@ Register-McPanelSource -Source @{
 
     Parent = {
         param($Location)
-        $p = try { Split-Path -LiteralPath $Location -Parent } catch { $null }
-        if ([string]::IsNullOrEmpty($p)) { return $null }
-        $p
+        Get-McParentPath $Location
     }
 
     Descend = {
