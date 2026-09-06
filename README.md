@@ -92,7 +92,7 @@ exactly what is and is not caught.
 | Arrows, PgUp/PgDn, Home/End | Move the cursor |
 | Enter | Descend into the highlighted container |
 | Ctrl+PgUp | Go up one level (mc's binding) |
-| Backspace | Delete a command-line character; go up one level when it is empty |
+| Backspace | Delete a command-line character (never navigates, as in mc) |
 | Tab | Switch panel |
 | Insert | Mark / unmark, advance |
 | F2 | **Change drive or provider** -- pick any PSDrive |

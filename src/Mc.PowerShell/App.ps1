@@ -519,17 +519,16 @@ function Invoke-McMouse {
 
 function Invoke-McBackspace {
     <#
-      Delete a character from the command line, or go up a directory when the
-      line is empty. The deletion is mc's [input] behaviour; going up is ours
-      (mc uses Ctrl+PgUp, which is also bound).
+      Delete a character from the command line, and nothing else. This is mc's
+      [input] behaviour: its [panel] section binds no Backspace, so an empty
+      command line means the key does nothing. Going up is Ctrl+PgUp
+      (CdParent), for every provider.
     #>
     param([hashtable] $State)
 
     if ($State.CommandLine.Length -gt 0) {
         $State.CommandLine = $State.CommandLine.Substring(0, $State.CommandLine.Length - 1)
-        return
     }
-    Invoke-McPanelUp (Get-McActivePanel $State)
 }
 
 # --- keymap ----------------------------------------------------------------
@@ -545,12 +544,11 @@ $script:McKeymap = @{
     'tab'       = { param($S, $Scr) $S.ActiveSide = if ($S.ActiveSide -eq 'Left') { 'Right' } else { 'Left' } }
     # mc binds Backspace only in [input], where it deletes a character; its
     # [panel] section has no Backspace at all and uses CdParent = ctrl-pgup to
-    # go up. We keep the deletion, which is mc's behaviour, and add navigating
-    # up when the line is empty -- a deliberate extra, recorded in COMPAT.md.
+    # go up. We match that exactly: Backspace never navigates, on any provider.
+    # (An earlier version went up when the line was empty; dropped for parity.)
     #
-    # The choice MUST be made inside the handler: the keymap is consulted
-    # before command-line editing, so anything bound here unconditionally
-    # shadows the command line completely.
+    # Bound here rather than left to the command-line editing below so that the
+    # binding is visible in the keymap alongside its Ctrl+H alias.
     'backspace' = { param($S, $Scr) Invoke-McBackspace $S }
     'C-h'       = { param($S, $Scr) Invoke-McBackspace $S }   # mc: [input] Backspace = backspace; ctrl-h
 
@@ -622,8 +620,7 @@ function Invoke-McKey {
     $handler = $script:McKeymap[$Key]
     if ($handler) { & $handler $State $Screen; return }
 
-    # Command-line editing. Only reached for keys the keymap does not claim,
-    # which is why Backspace handles its own context-sensitivity above.
+    # Command-line editing. Only reached for keys the keymap does not claim.
     if ($Key -eq 'esc') { $State.CommandLine = ''; return }
     if ($Key -eq 'C-c') { $State.CommandLine = ''; return }
     if ($Key -eq 'space') { $State.CommandLine += ' '; return }

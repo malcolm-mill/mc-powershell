@@ -23,7 +23,7 @@ here so the cost of unfreezing the others stays visible. See
 | Enter | Descend, or execute file | partial | Descends; no execute yet |
 | Ctrl+PgUp | Parent directory (`[panel] CdParent`) | done | mc's actual binding |
 | Backspace | Delete a character on the command line (`[input]`) | done | |
-| Backspace on an empty command line | *no mc equivalent* | different | Ours: goes up a directory. mc's `[panel]` binds no Backspace at all |
+| Backspace on an empty command line | Nothing (`[panel]` binds no Backspace) | done | Was "go up a directory" until 2026-09-06; removed for parity |
 | Ctrl+H | Same as Backspace (`[input]`) | done | |
 | Tab | Other panel | done | |
 | Insert | Mark and advance | done | |

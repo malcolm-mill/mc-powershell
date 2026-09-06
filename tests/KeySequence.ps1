@@ -69,18 +69,27 @@ Invoke-McKey $state $screen 'enter'
 Assert-That 'Enter descended into src' { $state.Left.Location -like '*src' }
 Assert-That 'src listing is not empty' { $state.Left.Entries.Count -gt 1 }
 
+# mc's [panel] section has no Backspace binding, so on an empty command line
+# the key must do nothing at all -- not go up, not move the cursor.
+$state.CommandLine = ''
+$before = (Get-McPanelCurrent $state.Left).Name
 Invoke-McKey $state $screen 'backspace'
-Assert-That 'Backspace returned to the repo root' { $state.Left.Location -eq $repo }
-Assert-That 'cursor restored onto src' {
-    (Get-McPanelCurrent $state.Left).Name -eq 'src'
+Assert-That 'Backspace on an empty command line does not navigate' {
+    $state.Left.Location -like '*src'
 }
+Assert-That 'and does not move the cursor' {
+    (Get-McPanelCurrent $state.Left).Name -eq $before
+}
+$state.CommandLine = 'ab'
+Invoke-McKey $state $screen 'backspace'
+Assert-That 'Backspace with text deletes a character and stays put' {
+    $state.CommandLine -eq 'a' -and $state.Left.Location -like '*src'
+}
+$state.CommandLine = ''
 
 Write-Host "`nParent directory (mc's CdParent)" -ForegroundColor Cyan
-# mc's [panel] section has no Backspace binding; CdParent is ctrl-pgup. Ours
-# adds Backspace-on-an-empty-line as an extra, so both must work.
-$state.CommandLine = ''
+# Ctrl+PgUp is the only way up, as in mc.
 $deep = Join-Path $repo 'src'
-[void](Set-McPanelLocation $state.Left $deep)
 Invoke-McKey $state $screen 'C-pgup'
 Assert-That 'Ctrl+PgUp goes up a directory' { $state.Left.Location -eq $repo }
 Assert-That 'and leaves the cursor on where we came from' {
@@ -96,10 +105,9 @@ Assert-That 'Ctrl+PgUp navigates even with text on the command line' {
 $state.CommandLine = ''
 
 Invoke-McKey $state $screen 'C-h'
-Assert-That 'Ctrl+H on an empty line goes up, like Backspace' {
-    $state.Left.Location -ne $repo
+Assert-That 'Ctrl+H on an empty line does nothing, like Backspace' {
+    $state.Left.Location -eq $repo
 }
-[void](Set-McPanelLocation $state.Left $repo)
 $state.CommandLine = 'abc'
 Invoke-McKey $state $screen 'C-h'
 Assert-That 'Ctrl+H deletes a character, as mc binds it in [input]' {
@@ -165,10 +173,9 @@ Assert-That 'Backspace deletes command-line characters' { $state.CommandLine -eq
 Assert-That 'Backspace did not navigate while typing'   { $state.Left.Location -eq $locationBefore }
 
 Invoke-McKey $state $screen 'backspace'
-Assert-That 'Backspace on an empty command line navigates up' {
-    $state.Left.Location -ne $locationBefore
+Assert-That 'Backspace on an empty command line stays put (mc parity)' {
+    $state.Left.Location -eq $locationBefore
 }
-[void](Set-McPanelLocation $state.Left $locationBefore)
 
 # The class of bug, not just the instance: any key the keymap claims becomes
 # unreachable for the command line, so printable keys must never be bound.
