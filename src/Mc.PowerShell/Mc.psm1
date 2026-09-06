@@ -116,6 +116,7 @@ Export-ModuleMember -Function @(
     'Add-McOutput'
     'Set-McOutputLines'
     'Invoke-McSubshell'
+    'Read-McShellLine'
     'Invoke-McCommandInPane'
     'Get-McLayout'
     'Get-McMenus'

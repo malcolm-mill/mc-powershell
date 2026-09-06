@@ -70,8 +70,8 @@ here so the cost of unfreezing the others stays visible. See
 | Feature | Status | Notes |
 |---|---|---|
 | Command line under the panels | done | Runs in place into the output pane when it is open, otherwise full-screen |
-| Ctrl+O screen swap | done | Full-screen shell in the panel's directory; `exit` returns and the panel follows any `cd`, as mc's `do_possible_cd` does |
-| Line editing in the subshell | partial | Host cooked-mode editing only; no history or tab completion yet (M4) |
+| Ctrl+O screen swap | done | Full-screen shell in the panel's directory; Ctrl+O again returns, as in mc, and the panel follows any `cd` (mc's `do_possible_cd`). Extra: `exit` at the prompt also returns; in mc it kills the subshell |
+| Line editing in the subshell | partial | Our own key-by-key reader: characters, Backspace, Esc clears, Ctrl+C abandons the line. No cursor movement, history or completion yet (M4) |
 | Same-session state (cwd, variables) | done | Commands run in this PowerShell session, so state persists without a pty subshell |
 | Macros for current file / other panel | todo | M4 |
 | Tab completion | todo | M4 |

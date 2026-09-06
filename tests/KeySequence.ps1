@@ -251,6 +251,64 @@ Assert-That 'the refusal is visible in the pane' {
 Set-McOutputLines $state 0
 $state.Message = $null
 
+Write-Host "`nSubshell line reader (mc's toggle_subshell)" -ForegroundColor Cyan
+# mc's Ctrl+O is a toggle: it takes you to the subshell and brings you back.
+# Read-McShellLine reads key by key so Ctrl+O can return at once; $null means
+# "go back to the panels", a string means "run this". Keys are fed from a
+# queue in place of the console.
+function New-Key([char] $Char, [ConsoleKey] $Key, [bool] $Ctrl = $false) {
+    [ConsoleKeyInfo]::new($Char, $Key, $false, $false, $Ctrl)
+}
+$keyQueue = [System.Collections.Queue]::new()
+$feed = { if ($keyQueue.Count -gt 0) { $keyQueue.Dequeue() } else { $null } }
+function Feed-Keys { param([ConsoleKeyInfo[]] $Keys) foreach ($k in $Keys) { $keyQueue.Enqueue($k) } }
+$ENTER = New-Key ([char]13) Enter
+$BACK  = New-Key ([char]8)  Backspace
+$CTRLO = New-Key ([char]15) O $true
+$CTRLC = New-Key ([char]3)  C $true
+$CTRLD = New-Key ([char]4)  D $true
+$ESC   = New-Key ([char]27) Escape
+
+Feed-Keys @((New-Key 'g' G), (New-Key 'c' C), (New-Key 'i' I), $ENTER)
+Assert-That 'typed characters and Enter yield the line' {
+    (Read-McShellLine -ReadKey $feed -NoEcho) -eq 'gci'
+}
+Feed-Keys @((New-Key 'a' A), (New-Key 'b' B), $BACK, $ENTER)
+Assert-That 'Backspace edits the line' {
+    (Read-McShellLine -ReadKey $feed -NoEcho) -eq 'a'
+}
+Feed-Keys @((New-Key 'l' L), (New-Key 's' S), (New-Key ' ' Spacebar), (New-Key '-' OemMinus), (New-Key 'l' L), $ENTER)
+Assert-That 'space and punctuation reach the line' {
+    (Read-McShellLine -ReadKey $feed -NoEcho) -eq 'ls -l'
+}
+Feed-Keys @($CTRLO)
+Assert-That 'Ctrl+O on an empty line returns to the panels ($null)' {
+    $null -eq (Read-McShellLine -ReadKey $feed -NoEcho)
+}
+Feed-Keys @((New-Key 'x' X), (New-Key 'y' Y), $CTRLO)
+Assert-That 'Ctrl+O mid-line returns at once, discarding the text' {
+    $null -eq (Read-McShellLine -ReadKey $feed -NoEcho) -and $keyQueue.Count -eq 0
+}
+Feed-Keys @((New-Key 'x' X), $CTRLC, (New-Key 'z' Z), $ENTER)
+Assert-That 'Ctrl+C abandons the line and re-prompts' {
+    (Read-McShellLine -ReadKey $feed -NoEcho) -eq '' -and
+    (Read-McShellLine -ReadKey $feed -NoEcho) -eq 'z'
+}
+Feed-Keys @((New-Key 'x' X), $ESC, (New-Key 'q' Q), $ENTER)
+Assert-That 'Esc clears the line' {
+    (Read-McShellLine -ReadKey $feed -NoEcho) -eq 'q'
+}
+Feed-Keys @($CTRLD)
+Assert-That 'Ctrl+D on an empty line returns to the panels' {
+    $null -eq (Read-McShellLine -ReadKey $feed -NoEcho)
+}
+Assert-That 'end of input returns to the panels' {
+    $null -eq (Read-McShellLine -ReadKey $feed -NoEcho)
+}
+Assert-That 'the keymap binds Ctrl+O to the subshell' {
+    $null -ne (Get-McKeymap)['C-o']
+}
+
 Write-Host "`nQuit" -ForegroundColor Cyan
 Invoke-McKey $state $screen 'f10'
 Assert-That 'F10 stops the loop' { -not $state.Running }

@@ -103,7 +103,7 @@ exactly what is and is not caught.
 | Ctrl+R | Reload panel |
 | Ctrl+U | Swap panels |
 | Alt+. | Toggle hidden files |
-| Ctrl+O | Drop into a full-screen shell in the active panel's directory; `exit` returns, and the panel follows any `cd` |
+| Ctrl+O | Drop into a full-screen shell in the active panel's directory; Ctrl+O again (or `exit`) returns, and the panel follows any `cd` |
 | Ctrl+Up / Ctrl+Down | Grow / shrink the output pane under the panels |
 | *typing* | Goes to the command line; Enter runs it in the active panel's location |
 
@@ -154,8 +154,8 @@ Markdown rendering and a hex mode come later; this is the plumbing they sit on.
 Two ways to work with a shell, following mc:
 
 **Ctrl+O** hands the whole terminal to a shell starting in the active panel's
-directory. Type `exit` to come back, and the panel follows you if you `cd`
-somewhere. Commands run in *this* PowerShell session, so variables, modules and
+directory. Press Ctrl+O again to come back, as in mc (`exit` also works), and
+the panel follows you if you `cd` somewhere. Commands run in *this* PowerShell session, so variables, modules and
 location persist across trips in and out -- mc needs a pty subshell to achieve
 what we get for free.
 

@@ -303,15 +303,71 @@ function Set-McOutputLines {
     $State.Message = if ($Lines -eq 0) { 'Output pane hidden' } else { "Output pane: $Lines lines" }
 }
 
+# Where the subshell gets its keys. A script variable so tests can feed a
+# scripted sequence instead of the console.
+$script:McShellReadKey = { [Console]::ReadKey($true) }
+
 function Read-McShellLine {
     <#
-      One line of input for the subshell. Console::ReadLine gives the host's
-      own cooked-mode line editing, which is basic but works everywhere.
-      A PSReadLine-backed editor with history and completion is M4.
+      One line of input for the subshell, read key by key so that Ctrl+O can
+      return to the panels immediately -- mc's toggle_subshell -- instead of
+      being swallowed by the host's cooked-mode ReadLine.
+
+      Returns the line, or $null when the caller should go back to the panels:
+      Ctrl+O, Ctrl+D on an empty line, or end of input.
+
+      Editing is deliberately basic: characters, Backspace, Esc to clear the
+      line, Ctrl+C to abandon it. No cursor movement, history or completion;
+      a PSReadLine-backed editor is M4.
     #>
-    $prompt = "$((Get-Location).Path)> "
-    Write-Host $prompt -NoNewline -ForegroundColor Green
-    try { [Console]::ReadLine() } catch { $null }
+    param(
+        [scriptblock] $ReadKey = $script:McShellReadKey,
+        [switch] $NoEcho
+    )
+
+    # Line ends must be CR+LF: Terminal.Init sets DISABLE_NEWLINE_AUTO_RETURN
+    # and a bare LF then only moves down, staircasing the prompt to the right.
+    $echo = { param([string] $Text) if (-not $NoEcho) { Write-Host $Text -NoNewline } }
+
+    & $echo "$((Get-Location).Path)> "
+    $line = [System.Text.StringBuilder]::new()
+
+    # Ctrl+C must reach us as a key here, not stop the pipeline; put it back
+    # afterwards so a long-running command can still be interrupted.
+    $savedCtrlC = $false
+    try { $savedCtrlC = [Console]::TreatControlCAsInput; [Console]::TreatControlCAsInput = $true } catch { }
+    try {
+        while ($true) {
+            $k = $null
+            try { $k = & $ReadKey } catch { $k = $null }
+            if ($null -eq $k) { & $echo "`r`n"; return $null }         # EOF
+
+            # An if-chain, not a switch: inside a PowerShell switch, 'continue'
+            # continues the switch, not this loop, and the key falls through.
+            $name = [Mc.Native.Keys]::Describe($k)
+            if ($name -eq 'C-o')   { & $echo "`r`n"; return $null }            # toggle back to the panels
+            if ($name -eq 'enter') { & $echo "`r`n"; return $line.ToString() }
+            if ($name -eq 'C-c')   { & $echo "^C`r`n"; return '' }             # abandon the line, new prompt
+            if ($name -eq 'C-d')   { if ($line.Length -eq 0) { & $echo "`r`n"; return $null }; continue }
+            if ($name -eq 'backspace') {
+                if ($line.Length -gt 0) { $line.Length--; & $echo "`b `b" }
+                continue
+            }
+            if ($name -eq 'esc') {
+                & $echo ("`b `b" * $line.Length)
+                [void]$line.Clear()
+                continue
+            }
+
+            $c = $k.KeyChar
+            if ($c -and -not [char]::IsControl($c)) {
+                [void]$line.Append($c)
+                & $echo ([string]$c)
+            }
+        }
+    } finally {
+        try { [Console]::TreatControlCAsInput = $savedCtrlC } catch { }
+    }
 }
 
 function Invoke-McSubshell {
@@ -320,9 +376,11 @@ function Invoke-McSubshell {
 
       mc leaves its alternate screen and hands the WHOLE terminal to a
       persistent subshell; pressing Ctrl+O again returns to the panels, and if
-      you cd'd, the panel follows (mc's do_possible_cd). We get the persistence
-      for free because commands run in this very PowerShell session -- the
-      variables, modules and location are literally the same ones.
+      you cd'd, the panel follows (mc's do_possible_cd). We do the same, and
+      also accept 'exit' at the prompt as an alias -- an extra mc does not
+      have (in mc, exit kills the subshell). We get the persistence for free
+      because commands run in this very PowerShell session -- the variables,
+      modules and location are literally the same ones.
     #>
     param($Screen, [hashtable] $State)
 
@@ -335,7 +393,7 @@ function Invoke-McSubshell {
         Push-Location -LiteralPath $startLocation -ErrorAction SilentlyContinue
 
         Write-Host ''
-        Write-Host "mc-powershell subshell -- type 'exit' to return to the panels" -ForegroundColor Cyan
+        Write-Host "mc-powershell subshell -- Ctrl+O (or 'exit') returns to the panels" -ForegroundColor Cyan
         if (Test-McWritable) {
             Write-Host 'READ-WRITE mode: commands can change files, registry and environment.' -ForegroundColor Red
         } else {
@@ -347,10 +405,10 @@ function Invoke-McSubshell {
 
         while ($true) {
             $line = Read-McShellLine
-            if ($null -eq $line) { break }            # EOF
+            if ($null -eq $line) { break }            # Ctrl+O, Ctrl+D or EOF
             $command = $line.Trim()
             if ($command -eq '') { continue }
-            if ($command -eq 'exit' -or $command -eq 'quit') { break }
+            if ($command -eq 'exit' -or $command -eq 'quit') { break }   # alias for Ctrl+O
 
             if (-not (Test-McWritable)) {
                 $reasons = @(Test-McCommandMutates $command)
