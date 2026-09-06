@@ -59,6 +59,11 @@ A release is cut when there is a coherent batch worth naming, and the
 CI runs on tag pushes too and fails if the tag and the manifest disagree, so a
 mistyped tag cannot become a release.
 
+Push at most three tags in one push. GitHub creates no push events when more
+than three tags arrive together, so the tag check silently never runs. That is
+what happened when the first six tags went up at once; v0.5.0 had to be
+deleted from the remote and pushed again on its own before its run appeared.
+
 Tags are annotated, never lightweight, so `git describe` works and the tag
 carries its own date and author.
 
