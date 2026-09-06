@@ -87,6 +87,19 @@ $notInManifest = @($exported | Where-Object { $_ -notin $manifest.FunctionsToExp
 Assert-That 'the manifest and the module agree on the export list' { $notInManifest.Count -eq 0 }
 foreach ($m in $notInManifest) { Write-Host "        exported but not in manifest: $m" -ForegroundColor Red }
 
+Write-Host "`nVersion is semver and the changelog knows it" -ForegroundColor Cyan
+# The manifest is the single source of truth (docs/VERSIONING.md). A release
+# with no changelog section, or a version that is not MAJOR.MINOR.PATCH, is
+# caught here rather than after the tag is pushed.
+$version = [string]$manifest.ModuleVersion
+Assert-That "ModuleVersion '$version' is MAJOR.MINOR.PATCH" { $version -match '^\d+\.\d+\.\d+$' }
+Assert-That 'Get-McVersion reports the manifest version' { (Get-McVersion) -eq $version }
+$changelog = Get-Content -LiteralPath (Join-Path $repo 'CHANGELOG.md') -Raw
+Assert-That "CHANGELOG.md has a section for $version" {
+    $changelog -match "(?m)^## \[$([regex]::Escape($version))\] - \d{4}-\d{2}-\d{2}"
+}
+Assert-That 'CHANGELOG.md keeps an [Unreleased] section' { $changelog -match '(?m)^## \[Unreleased\]' }
+
 Write-Host "`nTest suites are wired into CI" -ForegroundColor Cyan
 # Adding a suite and forgetting the workflow means it silently never runs.
 $ci = Get-Content -LiteralPath (Join-Path $repo '.github/workflows/ci.yml') -Raw

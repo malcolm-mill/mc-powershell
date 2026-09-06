@@ -18,6 +18,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
 
@@ -62,3 +63,14 @@ jobs:
       - name: Interface test
         shell: pwsh
         run: ./tests/Interface.ps1
+
+      # A release tag must name the version the manifest carries. See
+      # docs/VERSIONING.md. A mistyped tag fails here instead of shipping.
+      - name: Tag matches the manifest version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'.TrimStart('v')
+          $manifest = (Import-PowerShellDataFile ./src/Mc.PowerShell/Mc.psd1).ModuleVersion
+          if ($tag -ne $manifest) { throw "tag v$tag but Mc.psd1 says $manifest" }
+          "tag v$tag matches Mc.psd1"

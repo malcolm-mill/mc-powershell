@@ -9,8 +9,11 @@ anything a module mounts as a PSDrive, each with columns that make sense for
 that provider. That is the whole reason this exists in PowerShell rather than
 as a C# rewrite of mc.
 
-**Status: 0.1 -- walking skeleton.** Navigation works, file operations do not
-yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status: pre-release (0.x), not shippable.** Navigation, the viewer, the
+menu bar and the subshell work; file operations do not yet. See
+[docs/ROADMAP.md](docs/ROADMAP.md) for what is coming, [CHANGELOG.md](CHANGELOG.md)
+for what has landed, and [docs/VERSIONING.md](docs/VERSIONING.md) for what the
+numbers mean. `mc -Version` prints the version you are running.
 
 ```
 ┌──────────── C:\projects ────────────┐┌──── HKLM:\SOFTWARE  [Registry] ─────┐
@@ -85,7 +88,7 @@ gets an AST screen plus `$WhatIfPreference` instead -- strong against mistakes,
 but explicitly **not** a sandbox. [docs/SAFETY.md](docs/SAFETY.md) states
 exactly what is and is not caught.
 
-## Keys in 0.1
+## Keys
 
 | Key | Action |
 |---|---|

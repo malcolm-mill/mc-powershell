@@ -589,6 +589,16 @@ function Invoke-McBackspace {
     }
 }
 
+function Get-McVersion {
+    <#
+      The version, from the module manifest -- the single source of truth
+      (docs/VERSIONING.md). Returned as a string such as '0.5.0'.
+    #>
+    $module = $ExecutionContext.SessionState.Module
+    if ($module -and $module.Version) { return $module.Version.ToString() }
+    (Import-PowerShellDataFile (Join-Path $PSScriptRoot 'Mc.psd1')).ModuleVersion
+}
+
 # --- keymap ----------------------------------------------------------------
 
 $script:McKeymap = @{

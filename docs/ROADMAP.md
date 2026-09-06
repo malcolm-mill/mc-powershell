@@ -1,11 +1,16 @@
 # Roadmap
 
-Versioned by capability, not by date. Each milestone is usable on its own; none
+Ordered by capability, not by date. Each milestone is usable on its own; none
 of them is a "layer" that produces nothing you can run.
+
+Milestones are not version numbers. Things land out of order, and a release
+is cut whenever there is a coherent batch worth naming; see
+[VERSIONING.md](VERSIONING.md) for the rules and [CHANGELOG.md](../CHANGELOG.md)
+for what each version contained. The one fixed point is that 1.0.0 means M7.
 
 ---
 
-## M1 — Walking skeleton  *(done, 0.1)*
+## M1 — Walking skeleton  *(done, v0.1.0)*
 
 Two panels over the object model, navigable, with correct terminal lifecycle.
 
@@ -19,7 +24,7 @@ Two panels over the object model, navigable, with correct terminal lifecycle.
 
 ---
 
-## M2 — Navigation and view  *(0.2)*
+## M2 — Navigation and view
 
 Make it pleasant to move around before making it able to destroy things.
 
@@ -33,7 +38,7 @@ Make it pleasant to move around before making it able to destroy things.
 
 ---
 
-## M3 — File operations  *(0.3)*
+## M3 — File operations
 
 The milestone most file managers get quietly wrong. Errors are the feature.
 
@@ -50,7 +55,7 @@ The milestone most file managers get quietly wrong. Errors are the feature.
 
 ---
 
-## M4 — Shell integration  *(0.4)*
+## M4 — Shell integration
 
 The hardest parity feature, and the one that makes it feel like mc.
 
@@ -65,7 +70,7 @@ The hardest parity feature, and the one that makes it feel like mc.
 
 ---
 
-## M5 — Viewer and editor  *(0.5)*
+## M5 — Viewer and editor
 
 - [x] F3 viewer: encoding detection, wrap, line numbers, goto line, search,
       binary detection (landed early -- see README)
@@ -75,7 +80,7 @@ The hardest parity feature, and the one that makes it feel like mc.
 
 ---
 
-## M6 — Providers and archives  *(0.6)*
+## M6 — Providers and archives
 
 Where the thesis pays off. If M1's source contract was right, most of this is
 new sources rather than new plumbing.
@@ -100,7 +105,7 @@ Pulled forward because they change how everything else is used:
 
 ---
 
-## M7 — Polish  *(1.0)*
+## M7 — Polish  *(1.0.0)*
 
 1.0 means: it is the file manager I use every day.
 

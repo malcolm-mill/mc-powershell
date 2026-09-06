@@ -97,6 +97,7 @@ only this session is stuck on the old one.
 
 Export-ModuleMember -Function @(
     'Start-Mc'
+    'Get-McVersion'
     'Register-McPanelSource'
     'Get-McPanelSource'
     'New-McEntry'
