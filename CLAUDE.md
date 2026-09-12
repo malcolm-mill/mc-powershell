@@ -6,10 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 mc-powershell: Midnight Commander's two-panel UI over PowerShell's object model. Panels list objects from any PSProvider (`C:\`, `HKLM:`, `Env:`, `Cert:`), not just files. Pre-release 0.x, Windows only, GPL-3.0-or-later. Read `README.md` and `docs/ARCHITECTURE.md` first; `docs/COMPAT.md` is the behaviour spec.
 
-## TODO.txt and TODO-NOTES.txt
+## TODO.txt
 
-- `TODO.txt` is the owner's list: one numbered line per open feature or fix, terse. It is there for your information. **Do not edit it unless asked.**
-- `TODO-NOTES.txt` is yours: working notes per TODO item (where the code is, diagnosis, decisions to make), keyed by the item's number. Keep the long-form reasoning here, never in `TODO.txt`.
+`TODO.txt` is the owner's list: one numbered line per open feature or fix, terse. It is there for your information. **Do not edit it unless asked**, and do not keep a notes or scratch file of your own in the repository. Diagnosis and reasoning belong in the conversation and in commit messages.
 
 ## Branches
 
