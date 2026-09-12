@@ -16,11 +16,11 @@ for what has landed, and [docs/VERSIONING.md](docs/VERSIONING.md) for what the
 numbers mean. `mc -Version` prints the version you are running.
 
 ```
-┌──────────── C:\projects ────────────┐┌──── HKLM:\SOFTWARE  [Registry] ─────┐
-│Name                │  Size│Modify   ││Key                  │ Values│Subkeys│
-│..                    UP--            ││/7-Zip               │      2│      0│
-│/anki               │   DIR│Jun 24   ││/Adobe               │      0│     11│
-│/midnight           │   DIR│Sep 05   ││/Classes             │      0│   7073│
+┌──────────── C:\projects ────────────┐┌──── HKLM:\SOFTWARE\7-Zip  [Registry] ┐
+│Name                │  Size│Modify   ││Name        │Type     │Data          │
+│..                    UP--            ││..            UP--                   │
+│/anki               │   DIR│Jun 24   ││Path        │REG_SZ   │C:\Program Fi~│
+│/midnight           │   DIR│Sep 05   ││Path64      │REG_SZ   │C:\Program Fi~│
 └─────────────────────────────────────┘└─────────────────────────────────────┘
 C:\projects>
 1Help  2Drive  3View  4Edit  5Copy  6RenMov  7Mkdir  8Delete  9Sort  10Quit
@@ -204,8 +204,14 @@ Register-McPanelSource -Source @{
     Columns     = { param($Location) @(
         @{ Header = 'Name'; Width = -1; Align = 'Left'; Get = { param($e) $e.Name } }
     ) }
+    # Optional: what Enter or F3 shows for a leaf that is not a file on disk
+    Content     = { param($Location, $Entry) @{ Lines = @('...'); Encoding = 'thing'; Binary = $false; Truncated = $false } }
 }
 ```
+
+The registry is the worked example: keys are containers, values are leaf rows
+under them with Name, Type and Data columns, and Enter on a value shows its
+data in the viewer, with binary data as a hex dump.
 
 ## What is next
 

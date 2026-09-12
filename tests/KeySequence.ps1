@@ -366,6 +366,54 @@ if ($denied.Count -gt 0) {
     Assert-That 'and the panel is still where it was' { $state.Right.Location -eq 'HKLM:\SOFTWARE' }
 }
 
+Write-Host "`nRegistry values as rows" -ForegroundColor Cyan
+# The registry provider's children are keys only. A registry browser must show
+# values too, so the source appends one leaf row per value under the subkeys.
+$cv = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+Assert-That 'can open Windows NT\CurrentVersion' { Set-McPanelLocation $state.Right $cv }
+$keys = @($state.Right.Entries | Where-Object { $_.IsContainer -and -not $_.IsUp })
+$values = @($state.Right.Entries | Where-Object { -not $_.IsContainer })
+Assert-That 'the listing has both subkeys and values' { $keys.Count -gt 0 -and $values.Count -gt 0 }
+Assert-That 'values are leaves tagged with their type' {
+    @($values | Where-Object { $_.Tag -notlike 'REG_*' }).Count -eq 0
+}
+Assert-That 'keys sort before values, as directories before files' {
+    $lastKey = -1; $firstValue = [int]::MaxValue
+    for ($i = 0; $i -lt $state.Right.Entries.Count; $i++) {
+        $e = $state.Right.Entries[$i]
+        if ($e.IsContainer -and -not $e.IsUp) { $lastKey = $i }
+        elseif (-not $e.IsContainer -and $i -lt $firstValue) { $firstValue = $i }
+    }
+    $lastKey -lt $firstValue
+}
+Assert-That 'the columns are Name, Type, Data' {
+    (($state.Right.Columns | ForEach-Object Header) -join ',') -eq 'Name,Type,Data'
+}
+$build = $state.Right.Entries | Where-Object { $_.Name -eq 'CurrentBuild' } | Select-Object -First 1
+Assert-That 'CurrentBuild is listed as a REG_SZ value' { $null -ne $build -and $build.Tag -eq 'REG_SZ' }
+Assert-That 'the Data column shows its data' {
+    (& $state.Right.Columns[2].Get $build) -match '^\d+$'
+}
+$content = Get-McEntryContent $state.Right $build
+Assert-That 'Enter/F3 content names the key, value and type' {
+    $content.Lines[0] -like "Key:  $cv" -and $content.Lines[1] -eq 'Name: CurrentBuild' -and $content.Lines[2] -eq 'Type: REG_SZ'
+}
+Assert-That 'and ends with the data' { $content.Lines[$content.Lines.Count - 1] -match '^\d+$' }
+Assert-That 'a key row has no viewer content' {
+    $null -eq (Get-McEntryContent $state.Right $state.Right.Entries[1])
+}
+Assert-That 'DWORD data is shown as hex and decimal' { (Format-McRegistryData 'REG_DWORD' 26200) -eq '0x00006658 (26200)' }
+Assert-That 'MULTI_SZ data is joined' { (Format-McRegistryData 'REG_MULTI_SZ' @('a', 'b')) -eq 'a | b' }
+Assert-That 'BINARY data is a hex head with a byte count' {
+    (Format-McRegistryData 'REG_BINARY' ([byte[]](1, 2, 255))) -eq '01 02 ff (3 bytes)'
+}
+Assert-That 'an Env: entry has its value as content' {
+    Set-McPanelLocation $state.Right 'Env:' | Out-Null
+    $path = $state.Right.Entries | Where-Object { $_.Name -eq 'PATH' } | Select-Object -First 1
+    $c = Get-McEntryContent $state.Right $path
+    $null -ne $c -and ($c.Lines -join '') -eq $env:PATH
+}
+
 Write-Host ''
 if ($script:fail -eq 0) {
     Write-Host "$script:pass passed, 0 failed" -ForegroundColor Green

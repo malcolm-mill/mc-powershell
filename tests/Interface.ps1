@@ -300,9 +300,16 @@ try {
     $envEntry = Get-McPanelCurrent $s2.Right
     Assert-That 'an Env: entry is a leaf' { -not $envEntry.IsContainer }
     Assert-That 'an Env: entry has no viewable path' { $null -eq (Get-McViewablePath $envEntry) }
+    Assert-That 'but the source supplies its value as viewer content' {
+        $null -ne (Get-McEntryContent $s2.Right $envEntry)
+    }
+    # A provider leaf with nothing behind it: no file, no content. Enter must
+    # say so. (Enter on the real Env: entry would open the modal viewer.)
+    $s2.Right.Entries[1] = New-McEntry -Name 'mc-ghost' -Key 'Env:\mc-ghost' -IsContainer $false
+    Set-McPanelCursor $s2.Right 1
     $s2.Message = $null
     Invoke-McKey $s2 $screen 'enter'
-    Assert-That 'Enter on a provider leaf explains there is no file' {
+    Assert-That 'Enter on a provider leaf with nothing to show explains there is no file' {
         $s2.Message -match 'not a file on disk'
     }
 } finally {

@@ -129,6 +129,7 @@ Export-ModuleMember -Function @(
     'Invoke-McViewCurrent'
     'Invoke-McOpenCurrent'
     'Get-McViewablePath'
+    'Get-McEntryContent'
     'Read-McViewerFile'
     'Find-McViewerMatch'
     'Get-McFileEncoding'
@@ -149,5 +150,7 @@ Export-ModuleMember -Function @(
     'Get-McProp'
     'Get-McParentPath'
     'Get-McChildPath'
+    'Get-McRegistryValueRows'
+    'Format-McRegistryData'
     'Get-McLeafName'
 )

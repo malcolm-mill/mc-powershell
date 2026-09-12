@@ -132,13 +132,27 @@ function Read-McViewerFile {
     }
 }
 
+function Get-McEntryContent {
+    <#
+      Viewer content a source supplies for a leaf that is not a file on disk
+      (a registry value, an environment variable), or $null.
+    #>
+    param([hashtable] $Panel, $Entry)
+    if ($null -eq $Entry -or $null -eq $Panel.Source -or -not $Panel.Source.ContainsKey('Content')) { return $null }
+    try { & $Panel.Source.Content $Panel.Location $Entry } catch { $null }
+}
+
 function Invoke-McViewCurrent {
     <# F3 on whatever the active panel is pointing at. #>
     param($Screen, [hashtable] $State)
 
-    $entry = Get-McPanelCurrent (Get-McActivePanel $State)
+    $panel = Get-McActivePanel $State
+    $entry = Get-McPanelCurrent $panel
     if ($null -eq $entry) { return }
     if ($entry.IsContainer) { $State.Message = 'Enter opens a directory; F3 views files'; return }
+
+    $content = Get-McEntryContent $panel $entry
+    if ($content) { Show-McViewerSafe $Screen $State "$($panel.Location)  $($entry.Name)" -Content $content; return }
 
     $resolved = Get-McViewablePath $entry
     if (-not $resolved) {
@@ -155,9 +169,9 @@ function Show-McViewerSafe {
       Start-Mc's finally restores the terminal either way, but landing at a
       bare prompt with a stack trace is not what a file manager does.
     #>
-    param($Screen, [hashtable] $State, [string] $Path)
+    param($Screen, [hashtable] $State, [string] $Path, [hashtable] $Content)
     try {
-        Show-McViewer $Screen $State $Path
+        Show-McViewer $Screen $State $Path -Content $Content
     } catch {
         $Screen.Invalidate()
         $State.Message = "Viewer failed: $($_.Exception.Message)"
@@ -175,8 +189,12 @@ function Invoke-McOpenCurrent {
     #>
     param($Screen, [hashtable] $State)
 
-    $entry = Get-McPanelCurrent (Get-McActivePanel $State)
+    $panel = Get-McActivePanel $State
+    $entry = Get-McPanelCurrent $panel
     if ($null -eq $entry -or $entry.IsContainer) { return }
+
+    $content = Get-McEntryContent $panel $entry
+    if ($content) { Show-McViewerSafe $Screen $State "$($panel.Location)  $($entry.Name)" -Content $content; return }
 
     $resolved = Get-McViewablePath $entry
     if (-not $resolved) {
@@ -207,10 +225,12 @@ function Show-McViewer {
       Markdown files open formatted (see Markdown.ps1); F9 shows the source.
       The mouse works too: wheel scrolls, and a click on the key bar acts as
       that F-key.
+      With -Content, $Path is only the title and nothing is read from disk:
+      that is how a registry value or a variable is shown.
     #>
-    param($Screen, [hashtable] $State, [string] $Path)
+    param($Screen, [hashtable] $State, [string] $Path, [hashtable] $Content)
 
-    $file = Read-McViewerFile $Path
+    $file = if ($Content) { $Content } else { Read-McViewerFile $Path }
     if ($file.ContainsKey('Error')) {
         $State.Message = "Cannot view: $($file.Error)"
         return

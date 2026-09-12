@@ -91,7 +91,7 @@ here so the cost of unfreezing the others stays visible. See
 
 | Feature | Status | Notes |
 |---|---|---|
-| Any PSProvider as a panel | done | **Beyond mc** |
+| Any PSProvider as a panel | done | **Beyond mc**. Registry keys and values share a listing, as directories and files do; Enter on a value, a variable or a function shows it in the viewer |
 | Archives (zip, tar) | todo | M6 |
 | FTP / SFTP / SHELL | wont-do | PowerShell modules mount these as drives; the PSProvider source gets them for free |
 | extfs scripts | wont-do | Superseded by the source contract |

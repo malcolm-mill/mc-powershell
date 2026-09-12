@@ -14,6 +14,9 @@
 #   Descend     [scriptblock]   param($Location, $Entry) -> new location or $null
 #   Title       [scriptblock]   param($Location) -> string
 #   Columns     [scriptblock]   param($Location) -> column spec array
+#   Content     [scriptblock]   param($Location, $Entry) -> viewer content or $null
+#                               (optional: what Enter/F3 shows for a leaf that
+#                               is not a file -- a registry value, a variable)
 #
 # A column spec is:
 #   @{ Header = 'Size'; Width = 8; Align = 'Right'; Get = { param($e) ... } }
@@ -193,6 +196,106 @@ Register-McPanelSource -Source @{
 # third-party module mounts as a PSDrive.
 # ---------------------------------------------------------------------------
 
+# --- registry values as rows ------------------------------------------------
+# The registry provider's child items are keys only; values are properties of
+# a key. A registry browser has to show both, as mc shows files under
+# directories, so the PSProvider source appends one leaf row per value.
+
+$script:McRegistryKindNames = @{
+    'String'       = 'REG_SZ'
+    'ExpandString' = 'REG_EXPAND_SZ'
+    'Binary'       = 'REG_BINARY'
+    'DWord'        = 'REG_DWORD'
+    'MultiString'  = 'REG_MULTI_SZ'
+    'QWord'        = 'REG_QWORD'
+    'None'         = 'REG_NONE'
+}
+
+function Get-McRegistryValueRows {
+    <# One leaf PanelEntry per value of the key at $Location. #>
+    param([string] $Location)
+
+    $rows = [System.Collections.Generic.List[Mc.Native.PanelEntry]]::new()
+    $key = $null
+    try { $key = Get-Item -LiteralPath $Location -ErrorAction Stop } catch { return $rows.ToArray() }
+    if ($null -eq $key -or -not ($key.PSObject.Methods['GetValueNames'])) { return $rows.ToArray() }
+
+    foreach ($name in $key.GetValueNames()) {
+        $kind = 'Unknown'
+        $data = $null
+        try { $kind = [string]$key.GetValueKind($name) } catch { }
+        try { $data = $key.GetValue($name, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames) } catch { }
+
+        $display = if ([string]::IsNullOrEmpty($name)) { '(default)' } else { $name }
+        $kindName = if ($script:McRegistryKindNames.ContainsKey($kind)) { $script:McRegistryKindNames[$kind] } else { $kind }
+        $item = [pscustomobject]@{
+            McRegistryValue = $true
+            Key             = $Location
+            Name            = $display
+            Kind            = $kindName
+            Data            = $data
+        }
+        $rows.Add((New-McEntry -Name $display -Key "$Location::$display" -IsContainer $false -Tag $kindName -Item $item))
+    }
+    $rows.ToArray()
+}
+
+function Format-McRegistryData {
+    <# A registry value's data on one line, for the Data column. #>
+    param([string] $Kind, $Data)
+
+    if ($null -eq $Data) { return '' }
+    switch ($Kind) {
+        'REG_DWORD'    { return ('0x{0:x8} ({0})' -f [uint32]$Data) }
+        'REG_QWORD'    { return ('0x{0:x16} ({0})' -f [uint64]$Data) }
+        'REG_MULTI_SZ' { return (@($Data) -join ' | ') }
+        'REG_BINARY'   {
+            $bytes = [byte[]]$Data
+            $head = @($bytes | Select-Object -First 16 | ForEach-Object { '{0:x2}' -f $_ }) -join ' '
+            if ($bytes.Length -gt 16) { $head += ' ...' }
+            return "$head ($($bytes.Length) bytes)"
+        }
+        default        { return (([string]$Data) -replace '\s+', ' ') }
+    }
+}
+
+function Get-McRegistryValueContent {
+    <# Viewer content for a registry value: what it is, then its data. #>
+    param($Item)
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add("Key:  $($Item.Key)")
+    $lines.Add("Name: $($Item.Name)")
+    $lines.Add("Type: $($Item.Kind)")
+    $lines.Add('')
+
+    $data = $Item.Data
+    switch ($Item.Kind) {
+        'REG_MULTI_SZ' { foreach ($s in @($data)) { $lines.Add([string]$s) } }
+        'REG_DWORD'    { $lines.Add(('{0}  (0x{0:x8})' -f [uint32]$data)) }
+        'REG_QWORD'    { $lines.Add(('{0}  (0x{0:x16})' -f [uint64]$data)) }
+        'REG_BINARY'   {
+            $bytes = [byte[]]$data
+            $lines.Add("$($bytes.Length) bytes")
+            $lines.Add('')
+            for ($o = 0; $o -lt $bytes.Length; $o += 16) {
+                $chunk = $bytes[$o..([Math]::Min($o + 15, $bytes.Length - 1))]
+                $hex = @($chunk | ForEach-Object { '{0:x2}' -f $_ }) -join ' '
+                $ascii = -join ($chunk | ForEach-Object { if ($_ -ge 32 -and $_ -lt 127) { [char]$_ } else { '.' } })
+                $lines.Add(('{0:x8}  {1,-47}  {2}' -f $o, $hex, $ascii))
+            }
+        }
+        'REG_EXPAND_SZ' {
+            $lines.Add([string]$data)
+            $expanded = [Environment]::ExpandEnvironmentVariables([string]$data)
+            if ($expanded -ne [string]$data) { $lines.Add(''); $lines.Add("Expanded: $expanded") }
+        }
+        default        { if ($null -ne $data) { foreach ($l in (([string]$data) -split "`r?`n")) { $lines.Add($l) } } }
+    }
+
+    @{ Lines = $lines; Encoding = $Item.Kind; Binary = $false; Truncated = $false; Length = 0 }
+}
+
 function Get-McProviderColumns {
     param([string] $ProviderName)
 
@@ -204,13 +307,18 @@ function Get-McProviderColumns {
             )
         }
         'Registry' {
+            # Keys and values share the listing, as directories and files do.
             return @(
-                @{ Header = 'Key'; Width = -1; Align = 'Left'
-                    Get = { param($e) if ($e.IsUp) { '..' } else { "/$($e.Name)" } } }
-                @{ Header = 'Values'; Width = 7; Align = 'Right'
-                    Get = { param($e) if ($e.IsUp) { 'UP--' } else { [string](Get-McProp $e.Item 'ValueCount') } } }
-                @{ Header = 'Subkeys'; Width = 8; Align = 'Right'
-                    Get = { param($e) if ($e.IsUp) { '' } else { [string](Get-McProp $e.Item 'SubKeyCount') } } }
+                @{ Header = 'Name'; Width = -1; Align = 'Left'
+                    Get = { param($e) if ($e.IsUp) { '..' } elseif ($e.IsContainer) { "/$($e.Name)" } else { $e.Name } } }
+                @{ Header = 'Type'; Width = 13; Align = 'Left'
+                    Get = { param($e) if ($e.IsUp) { 'UP--' } elseif ($e.IsContainer) { 'KEY' } else { $e.Tag } } }
+                @{ Header = 'Data'; Width = -1; Align = 'Left'
+                    Get = { param($e)
+                        if ($e.IsUp) { '' }
+                        elseif ($e.IsContainer) { "$(Get-McProp $e.Item 'SubKeyCount') subkeys, $(Get-McProp $e.Item 'ValueCount') values" }
+                        else { Format-McRegistryData $e.Tag (Get-McProp $e.Item 'Data') }
+                    } }
             )
         }
         'Certificate' {
@@ -319,6 +427,10 @@ Register-McPanelSource -Source @{
             $entries.Add((New-McEntry -Name $name -Key $key -IsContainer $isContainer -Size $size -Modified $modified -Item $item))
         }
 
+        if ((Get-McLocationProvider $Location) -eq 'Registry') {
+            foreach ($row in (Get-McRegistryValueRows $Location)) { $entries.Add($row) }
+        }
+
         $entries.ToArray()
     }
 
@@ -343,5 +455,21 @@ Register-McPanelSource -Source @{
     Columns = {
         param($Location)
         Get-McProviderColumns (Get-McLocationProvider $Location)
+    }
+
+    Content = {
+        param($Location, $Entry)
+        if ($null -eq $Entry.Item) { return $null }
+        if (Get-McProp $Entry.Item 'McRegistryValue') { return (Get-McRegistryValueContent $Entry.Item) }
+        # Anything with a Value or Definition (Env:, Variable:, Function:,
+        # Alias:) shows it; better than "not a file on disk".
+        foreach ($prop in 'Definition', 'Value') {
+            $v = Get-McProp $Entry.Item $prop
+            if ($null -ne $v) {
+                $lines = [string[]](([string]$v) -split "`r?`n")
+                return @{ Lines = $lines; Encoding = $prop.ToLowerInvariant(); Binary = $false; Truncated = $false; Length = 0 }
+            }
+        }
+        $null
     }
 }

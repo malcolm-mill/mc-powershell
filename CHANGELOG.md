@@ -8,6 +8,16 @@ follow [Semantic Versioning](https://semver.org); see
 
 ## [Unreleased]
 
+### Added
+- Registry values are rows. A registry panel lists a key's values as leaf
+  rows under its subkeys, with Name, Type and Data columns; keys show their
+  subkey and value counts. Enter or F3 on a value shows it in the viewer,
+  with a hex dump for binary data and the expanded form for `REG_EXPAND_SZ`.
+- Sources can supply viewer content for a leaf that is not a file (the
+  `Content` scriptblock). The provider source uses it for registry values,
+  and for anything with a Value or Definition, so Enter on an `Env:` variable
+  or a `Function:` shows it instead of "not a file on disk".
+
 ### Fixed
 - Enter on a registry subkey (or any non-filesystem container) now opens
   it. The provider source built the child path with `Convert-Path`, which
