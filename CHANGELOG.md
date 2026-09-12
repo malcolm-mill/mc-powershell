@@ -8,6 +8,8 @@ follow [Semantic Versioning](https://semver.org); see
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-12
+
 ### Added
 - Certificates are named by what they say. A `Cert:` panel shows each
   certificate's friendly name or subject, who issued it (or "self-signed"),
@@ -160,7 +162,8 @@ follow [Semantic Versioning](https://semver.org); see
   F3 viewer, Ctrl+O shell-out, F10 quit.
 - `tests/Smoke.ps1` headless render harness.
 
-[Unreleased]: https://github.com/malcolm-mill/mc-powershell/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/malcolm-mill/mc-powershell/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/malcolm-mill/mc-powershell/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/malcolm-mill/mc-powershell/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/malcolm-mill/mc-powershell/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/malcolm-mill/mc-powershell/compare/v0.4.0...v0.5.0
