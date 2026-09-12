@@ -8,6 +8,13 @@ follow [Semantic Versioning](https://semver.org); see
 
 ## [Unreleased]
 
+### Added
+- Certificates are named by what they say. A `Cert:` panel shows each
+  certificate's friendly name or subject, who issued it (or "self-signed"),
+  and when it expires, instead of its thumbprint. Enter or F3 shows the
+  full certificate: subject, issuer, validity, private key, serial,
+  thumbprint, key and signature algorithms, purposes and alternative names.
+
 ### Fixed
 - Choosing `Cert:` in the drive chooser opened the root of the current
   filesystem drive instead of the certificate stores. The drive reports its

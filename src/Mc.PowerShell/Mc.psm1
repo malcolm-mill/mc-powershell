@@ -153,5 +153,7 @@ Export-ModuleMember -Function @(
     'Get-McChildPath'
     'Get-McRegistryValueRows'
     'Format-McRegistryData'
+    'Get-McCertificateName'
+    'Get-McCertificateContent'
     'Get-McLeafName'
 )

@@ -381,6 +381,30 @@ Assert-That 'Cert:\ lists the certificate stores' {
 }
 Assert-That 'and the title says so' { (& $state.Right.Source.Title $state.Right.Location) -match 'Certificate' }
 
+Write-Host "`nCertificates by name" -ForegroundColor Cyan
+# A certificate's PSChildName is its thumbprint, which identifies it and says
+# nothing. The panel names it by what it says and keeps the thumbprint as key.
+Assert-That 'can open the trusted root store' { Set-McPanelLocation $state.Right 'Cert:\LocalMachine\Root' }
+Assert-That 'the columns are Name, Issued by, Expires' {
+    (($state.Right.Columns | ForEach-Object Header) -join ',') -eq 'Name,Issued by,Expires'
+}
+$cert = $state.Right.Entries | Where-Object { -not $_.IsContainer } | Select-Object -First 1
+Assert-That 'a root store lists certificates' { $null -ne $cert }
+Assert-That 'a certificate is named by its subject or friendly name, not its thumbprint' {
+    $cert.Name -eq (Get-McCertificateName $cert.Item) -and $cert.Name -ne $cert.Item.Thumbprint
+}
+Assert-That 'a root certificate is self-signed' { (& $state.Right.Columns[1].Get $cert) -eq 'self-signed' }
+Assert-That 'the Expires column is a date' { (& $state.Right.Columns[2].Get $cert) -match '^\d{4}-\d{2}-\d{2}$' }
+$cc = Get-McEntryContent $state.Right $cert
+Assert-That 'Enter/F3 content carries subject, issuer, validity and thumbprint' {
+    ($cc.Lines -join "`n") -match 'Subject:' -and ($cc.Lines -join "`n") -match 'Issuer:' -and
+    ($cc.Lines -join "`n") -match 'Valid to:' -and ($cc.Lines -join "`n") -match "Thumbprint:\s+$($cert.Item.Thumbprint)"
+}
+Assert-That 'a store row has no viewer content' {
+    Set-McPanelLocation $state.Right 'Cert:\' | Out-Null
+    $null -eq (Get-McEntryContent $state.Right ($state.Right.Entries | Where-Object { $_.Name -eq 'CurrentUser' }))
+}
+
 Write-Host "`nRegistry values as rows" -ForegroundColor Cyan
 # The registry provider's children are keys only. A registry browser must show
 # values too, so the source appends one leaf row per value under the subkeys.

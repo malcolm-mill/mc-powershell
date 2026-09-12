@@ -296,6 +296,66 @@ function Get-McRegistryValueContent {
     @{ Lines = $lines; Encoding = $Item.Kind; Binary = $false; Truncated = $false; Length = 0 }
 }
 
+# --- certificates ------------------------------------------------------------
+# The certificate provider names each certificate by its thumbprint, a SHA-1
+# hash of the bytes that identifies it and says nothing about it. The panel
+# shows what the certificate says instead, and keeps the thumbprint as the key.
+
+function Test-McCertificate {
+    param($Item)
+    $null -ne $Item -and $Item -is [System.Security.Cryptography.X509Certificates.X509Certificate2]
+}
+
+function Get-McCertificateName {
+    <# Friendly name, else the subject's common name, else the thumbprint. #>
+    param($Cert)
+    $name = [string](Get-McProp $Cert 'FriendlyName')
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        try { $name = $Cert.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false) } catch { $name = '' }
+    }
+    if ([string]::IsNullOrWhiteSpace($name)) { $name = [string]$Cert.Thumbprint }
+    $name
+}
+
+function Get-McCertificateIssuer {
+    <# The issuer's common name, or "self-signed" when it issued itself. #>
+    param($Cert)
+    if ($Cert.Subject -eq $Cert.Issuer) { return 'self-signed' }
+    try { return $Cert.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $true) } catch { return [string]$Cert.Issuer }
+}
+
+function Get-McCertificateContent {
+    <# Viewer content: everything the certificate says about itself. #>
+    param($Cert, [string] $Location)
+
+    $l = [System.Collections.Generic.List[string]]::new()
+    $l.Add("Store:         $Location")
+    $l.Add("Friendly name: $($Cert.FriendlyName)")
+    $l.Add("Subject:       $($Cert.Subject)")
+    $l.Add("Issuer:        $($Cert.Issuer)$(if ($Cert.Subject -eq $Cert.Issuer) { '  (self-signed)' })")
+    $l.Add("Valid from:    $($Cert.NotBefore.ToString('yyyy-MM-dd HH:mm'))")
+    $l.Add("Valid to:      $($Cert.NotAfter.ToString('yyyy-MM-dd HH:mm'))$(if ($Cert.NotAfter -lt [datetime]::Now) { '  EXPIRED' })")
+    $l.Add("Private key:   $(if ($Cert.HasPrivateKey) { 'yes' } else { 'no' })")
+    $l.Add("Serial number: $($Cert.SerialNumber)")
+    $l.Add("Thumbprint:    $($Cert.Thumbprint)")
+    $l.Add("Version:       $($Cert.Version)")
+    $l.Add("Signature:     $($Cert.SignatureAlgorithm.FriendlyName)")
+    try { $l.Add("Public key:    $($Cert.PublicKey.Oid.FriendlyName) $($Cert.PublicKey.Key.KeySize) bits") } catch { }
+
+    $purposes = @()
+    try { $purposes = @($Cert.EnhancedKeyUsageList | ForEach-Object { $_.FriendlyName }) } catch { }
+    $l.Add('')
+    $l.Add('Purposes:      ' + $(if ($purposes.Count) { $purposes -join ', ' } else { '(none stated -- any)' }))
+
+    $sans = @()
+    foreach ($ext in $Cert.Extensions) {
+        if ($ext.Oid.Value -eq '2.5.29.17') { try { $sans += ($ext.Format($false) -split ', ') } catch { } }
+    }
+    if ($sans.Count) { $l.Add('Alt names:     ' + ($sans -join ', ')) }
+
+    @{ Lines = $l; Encoding = 'certificate'; Binary = $false; Truncated = $false; Length = 0 }
+}
+
 function Get-McProviderColumns {
     param([string] $ProviderName)
 
@@ -322,10 +382,19 @@ function Get-McProviderColumns {
             )
         }
         'Certificate' {
+            # Locations and stores are containers; certificates are leaves
+            # named by what they say, not by their thumbprint.
             return @(
-                @{ Header = 'Name'; Width = -1; Align = 'Left'; Get = { param($e) $e.Name } }
-                @{ Header = 'Expires'; Width = 12; Align = 'Left'
-                    Get = { param($e) $d = Get-McProp $e.Item 'NotAfter'; if ($d -is [datetime]) { $d.ToString('yyyy-MM-dd') } else { '' } } }
+                @{ Header = 'Name'; Width = -1; Align = 'Left'
+                    Get = { param($e) if ($e.IsUp) { '..' } elseif ($e.IsContainer) { "/$($e.Name)" } else { $e.Name } } }
+                @{ Header = 'Issued by'; Width = -1; Align = 'Left'
+                    Get = { param($e) if (Test-McCertificate $e.Item) { Get-McCertificateIssuer $e.Item } else { '' } } }
+                @{ Header = 'Expires'; Width = 10; Align = 'Left'
+                    Get = { param($e)
+                        if ($e.IsUp) { 'UP--' }
+                        elseif (-not (Test-McCertificate $e.Item)) { '' }
+                        else { $e.Item.NotAfter.ToString('yyyy-MM-dd') }
+                    } }
             )
         }
         'Function' {
@@ -410,6 +479,7 @@ Register-McPanelSource -Source @{
                 $name = [string](Get-McProp $item $fallback)
             }
             if ([string]::IsNullOrEmpty($name)) { $name = [string]$item }
+            if (Test-McCertificate $item) { $name = Get-McCertificateName $item }
 
             $key = [string](Get-McProp $item 'PSPath')
             if ([string]::IsNullOrEmpty($key)) { $key = Join-Path $Location $name }
@@ -461,6 +531,7 @@ Register-McPanelSource -Source @{
         param($Location, $Entry)
         if ($null -eq $Entry.Item) { return $null }
         if (Get-McProp $Entry.Item 'McRegistryValue') { return (Get-McRegistryValueContent $Entry.Item) }
+        if (Test-McCertificate $Entry.Item) { return (Get-McCertificateContent $Entry.Item $Location) }
         # Anything with a Value or Definition (Env:, Variable:, Function:,
         # Alias:) shows it; better than "not a file on disk".
         foreach ($prop in 'Definition', 'Value') {
