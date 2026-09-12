@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- a build file, in a default namespace -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" version="4">
+  <name>demo</name>
+  <dependencies>
+    <dependency scope="compile">
+      <groupId>org.example</groupId>
+      <artifactId>alpha</artifactId>
+    </dependency>
+    <dependency scope="test">
+      <groupId>org.example</groupId>
+      <artifactId>beta</artifactId>
+    </dependency>
+    <dependency scope="runtime">
+      <groupId>org.example</groupId>
+      <artifactId>gamma</artifactId>
+    </dependency>
+  </dependencies>
+  <description><![CDATA[raw <text> here]]></description>
+  <mixed>one <b>two</b> three</mixed>
+</project>

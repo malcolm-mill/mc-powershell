@@ -16,6 +16,13 @@ follow [Semantic Versioning](https://semver.org); see
   directory with the cursor on the file. Enter or F3 on a value shows it,
   F3 on a container shows the subtree as indented JSON. Documents are parsed
   once and cached; a broken file is refused with the parser's message.
+- XML documents as panels, on the same mechanism. Elements are containers;
+  under one come its attributes as `@name` rows, then its children in
+  document order, with `[n]` on the name only where siblings share it. Text,
+  CDATA, comments and processing instructions are leaves. A default
+  namespace needs no prefix, because paths are resolved by walking the tree
+  rather than by XPath. `.csproj`, `.config`, `.svg`, `.xaml`, `.plist` and
+  the other usual suffixes count as XML. F3 on an element shows it indented.
 - Sources can claim a file on Enter (`Open`), name their own location in the
   parent listing (`LeafName`), and ask for a default sort (`DefaultSort`),
   which is how a document keeps document order until the user sorts.

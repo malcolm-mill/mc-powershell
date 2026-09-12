@@ -49,6 +49,7 @@
         'Show-McSortMenu'
         'Get-McPanelCurrent'
         'Get-McPanelLeafName'
+        'Test-McXmlFile'
         'Move-McPanelCursor'
         'Set-McPanelCursor'
         'Set-McPanelLocation'

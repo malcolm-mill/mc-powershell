@@ -102,7 +102,7 @@ exactly what is and is not caught.
 | Key | Action |
 |---|---|
 | Arrows, PgUp/PgDn, Home/End | Move the cursor |
-| Enter | Descend into the highlighted container; on a `.json` file, descend into its structure; on another text file, open the viewer (never executes) |
+| Enter | Descend into the highlighted container; on a `.json` or XML file, descend into its structure; on another text file, open the viewer (never executes) |
 | Ctrl+PgUp | Go up one level (mc's binding) |
 | Backspace | Delete a command-line character (never navigates, as in mc) |
 | Tab | Switch panel |
@@ -169,13 +169,20 @@ later.
 
 ## Documents as panels
 
-Enter on a `.json` file descends into it the way mc descends into an archive.
-Objects and arrays are containers, values are leaves, and the columns are
-Name, Type and Value, in document order. The location reads
-`file.json::/servers/0`: the part after `::` is a JSON Pointer, and Ctrl+PgUp
-from the top comes back out to the directory with the cursor on the file.
-Enter or F3 on a value shows it; F3 on an object or array shows the subtree as
-indented JSON. F3 on the file itself still shows the raw text. XML is next.
+Enter on a `.json` or XML file descends into it the way mc descends into an
+archive. The columns are Name, Type and Value, in document order, and the
+location reads `file.json::/servers/0` or `pom.xml::/project/dependency[2]`:
+the part after `::` is a JSON Pointer or an element path. Ctrl+PgUp from the
+top comes back out to the directory with the cursor on the file. Enter or F3
+on a value shows it; F3 on a container shows the subtree, indented. F3 on the
+file itself still shows the raw text.
+
+For JSON, objects and arrays are containers and values are leaves. For XML,
+elements are containers; under one come its attributes as `@name` rows, then
+its children in document order, with `[n]` on the name only where siblings
+share it. Text, CDATA, comments and processing instructions are leaves named
+`#text`, `#cdata`, `#comment` and `?name`. Files ending in `.csproj`, `.config`,
+`.svg`, `.xaml`, `.plist` and the other usual XML suffixes count as XML.
 
 ## The shell
 

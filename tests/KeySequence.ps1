@@ -446,6 +446,73 @@ Invoke-McKey $state $screen 'enter'
 Assert-That 'a broken document is refused, staying in the directory' { $state.Left.Location -eq $fx }
 Assert-That 'with the parser''s reason on the message line' { $state.Message -match 'Cannot open' -and $state.Message -match 'JSON' }
 
+Write-Host "`nXML documents as panels" -ForegroundColor Cyan
+# Same mechanism as JSON. Elements are containers; attributes come first as
+# @name rows; [n] appears only where siblings share a name. Names are read
+# through getter methods because PowerShell's XML adapter lets a child
+# element called <name> shadow the element's own .Name.
+Set-McPanelLocation $state.Left $fx | Out-Null
+Set-McPanelCursor $state.Left ([array]::FindIndex($state.Left.Entries, [Predicate[object]]{ param($e) $e.Name -eq 'sample.xml' }))
+$state.Message = $null
+Invoke-McKey $state $screen 'enter'
+Assert-That 'Enter on a .xml file enters it' { $state.Left.Location -eq "$fx\sample.xml::/" -and $state.Left.Source.Name -eq 'Xml' }
+Assert-That 'the document root lists the declaration, the comment and the root element' {
+    (($state.Left.Entries | Select-Object -Skip 1 | ForEach-Object { "$($_.Name):$($_.Tag)" }) -join ',') -eq '?xml:xml,#comment:comment,project:element'
+}
+Assert-That 'the root element is named project, not by its <name> child' {
+    ($state.Left.Entries | Where-Object Tag -eq 'element').Name -eq 'project'
+}
+Set-McPanelCursor $state.Left ($state.Left.Entries.Count - 1)
+Invoke-McKey $state $screen 'enter'
+Assert-That 'Enter descends into the element' { $state.Left.Location -eq "$fx\sample.xml::/project" }
+Assert-That 'attributes come first as @name rows, then children in document order' {
+    (($state.Left.Entries | Select-Object -Skip 1 | ForEach-Object Name) -join ',') -eq '@xmlns,@version,name,dependencies,description,mixed'
+}
+Assert-That 'attributes are leaves with their value' {
+    $v = $state.Left.Entries | Where-Object Name -eq '@version'
+    -not $v.IsContainer -and (& $state.Left.Columns[2].Get $v) -eq '4'
+}
+Assert-That 'a simple element shows its text in the Value column' {
+    (& $state.Left.Columns[2].Get ($state.Left.Entries | Where-Object Name -eq 'name')) -eq 'demo'
+}
+Assert-That 'a complex element shows a summary' {
+    (& $state.Left.Columns[2].Get ($state.Left.Entries | Where-Object Name -eq 'dependencies')) -eq '3 elements'
+}
+Set-McPanelCursor $state.Left ([array]::FindIndex($state.Left.Entries, [Predicate[object]]{ param($e) $e.Name -eq 'dependencies' }))
+Invoke-McKey $state $screen 'enter'
+Assert-That 'repeated siblings get positional names' {
+    (($state.Left.Entries | Select-Object -Skip 1 | ForEach-Object Name) -join ',') -eq 'dependency[1],dependency[2],dependency[3]'
+}
+Set-McPanelCursor $state.Left 2
+Invoke-McKey $state $screen 'enter'
+Assert-That 'and the location carries the position' { $state.Left.Location -eq "$fx\sample.xml::/project/dependencies/dependency[2]" }
+Assert-That 'which resolves to the right element' {
+    (& $state.Left.Columns[2].Get ($state.Left.Entries | Where-Object Name -eq 'artifactId')) -eq 'beta'
+}
+Invoke-McKey $state $screen 'C-pgup'
+Assert-That 'Ctrl+PgUp lands on dependency[2]' { (Get-McPanelCurrent $state.Left).Name -eq 'dependency[2]' }
+$dep2 = Get-McPanelCurrent $state.Left
+Assert-That 'F3 on an element shows it as indented XML' {
+    $l = (Get-McEntryContent $state.Left $dep2).Lines
+    $l[0] -match '^<dependency scope="test"' -and $l[-1] -eq '</dependency>' -and $l.Count -eq 4
+}
+Invoke-McKey $state $screen 'C-pgup'
+Invoke-McKey $state $screen 'C-pgup'
+Invoke-McKey $state $screen 'C-pgup'
+Assert-That 'Ctrl+PgUp from the root exits to the directory, cursor on the file' {
+    $state.Left.Location -eq $fx -and (Get-McPanelCurrent $state.Left).Name -eq 'sample.xml'
+}
+Set-McPanelLocation $state.Left "$fx\sample.xml::/project/mixed" | Out-Null
+Assert-That 'mixed content lists text and elements in order' {
+    (($state.Left.Entries | Select-Object -Skip 1 | ForEach-Object { "$($_.Name):$($_.Tag)" }) -join ',') -eq '#text[1]:text,b:element,#text[2]:text'
+}
+Set-McPanelLocation $state.Left "$fx\sample.xml::/project/description" | Out-Null
+Assert-That 'CDATA is a leaf whose content is the raw text' {
+    $c = $state.Left.Entries[1]
+    $c.Tag -eq 'cdata' -and ((Get-McEntryContent $state.Left $c).Lines -join '') -eq 'raw <text> here'
+}
+Assert-That 'a .csproj counts as XML' { (& $state.Left.Source.Open 'C:\nowhere\x.csproj') -eq $null -and (Test-McXmlFile 'x.csproj') }
+
 Write-Host "`nDrive chooser targets" -ForegroundColor Cyan
 # Cert: reports its root as "\", which Test-Path accepts as the root of the
 # current filesystem drive, so the chooser opened C:\ under the name Cert:.

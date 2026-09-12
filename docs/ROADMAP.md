@@ -88,7 +88,8 @@ new sources rather than new plumbing.
 - [ ] Archive source: zip / tar browsing as a panel
 - [x] JSON document as a panel: Enter on a `.json` file, `file.json::/pointer`
       locations, document order, exit to the directory (the archive mechanism)
-- [ ] XML document as a panel, on the same mechanism
+- [x] XML document as a panel, on the same mechanism: elements, `@attribute`
+      rows, `#text` and `#comment` leaves, `[n]` where siblings repeat
 - [ ] Object-aware actions: Enter on a `Cert:` entry shows the certificate,
       Enter on a `Function:` entry shows the definition
 - [ ] Column picker: choose any property of the underlying object as a column
