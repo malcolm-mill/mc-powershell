@@ -1,0 +1,35 @@
+---
+---
+// GitHub Pages: widen the Minimal theme. It hard-codes a 960px page with a
+// 270px sidebar and a 500px column, which squeezes the content into a strip
+// on the right of a wide screen and puts a scrollbar on every panel mock-up.
+// Only the desktop layout is touched; the theme's own rules below 960px
+// (sidebar on top, single column) stay as they are.
+
+@import "{{ site.theme }}";
+
+@media screen and (min-width: 961px) {
+  .wrapper {
+    width: auto;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 30px;
+  }
+  header {
+    width: 270px;
+  }
+  section {
+    width: calc(100% - 320px);
+    max-width: none;
+  }
+  footer {
+    width: 270px;
+  }
+}
+
+// Long tables and panel mock-ups scroll within themselves rather than
+// forcing the page wider.
+pre, table {
+  max-width: 100%;
+  overflow-x: auto;
+}
