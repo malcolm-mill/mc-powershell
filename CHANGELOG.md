@@ -8,6 +8,8 @@ follow [Semantic Versioning](https://semver.org); see
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-12
+
 ### Added
 - Markdown in the viewer: a `.md` file opens formatted, with headings,
   bold, italic (underlined, as mc's nroff mode does), code, links, lists,
@@ -123,7 +125,8 @@ follow [Semantic Versioning](https://semver.org); see
   F3 viewer, Ctrl+O shell-out, F10 quit.
 - `tests/Smoke.ps1` headless render harness.
 
-[Unreleased]: https://github.com/malcolm-mill/mc-powershell/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/malcolm-mill/mc-powershell/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/malcolm-mill/mc-powershell/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/malcolm-mill/mc-powershell/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/malcolm-mill/mc-powershell/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/malcolm-mill/mc-powershell/compare/v0.2.0...v0.3.0

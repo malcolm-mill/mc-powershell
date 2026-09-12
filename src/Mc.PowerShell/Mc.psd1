@@ -1,6 +1,6 @@
 @{
     RootModule        = 'Mc.psm1'
-    ModuleVersion     = '0.5.0'
+    ModuleVersion     = '0.6.0'
     GUID              = '5f2a9c31-7e4b-4a1d-9c66-1b0d8e3a7f42'
     Author            = 'Malcolm Mill'
     Description       = "Midnight Commander's two-panel UI over PowerShell's object model."
