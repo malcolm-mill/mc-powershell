@@ -679,9 +679,7 @@ function Invoke-McKey {
         }
         $panel = Get-McActivePanel $State
         $leaf = Invoke-McPanelEnter $panel
-        if ($null -ne $leaf) {
-            $State.Message = "$($leaf.Name) -- no action bound yet (F3 to view)"
-        }
+        if ($null -ne $leaf) { Invoke-McOpenCurrent $Screen $State }
         return
     }
 

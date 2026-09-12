@@ -93,7 +93,7 @@ exactly what is and is not caught.
 | Key | Action |
 |---|---|
 | Arrows, PgUp/PgDn, Home/End | Move the cursor |
-| Enter | Descend into the highlighted container |
+| Enter | Descend into the highlighted container; on a text file, open the viewer (never executes) |
 | Ctrl+PgUp | Go up one level (mc's binding) |
 | Backspace | Delete a command-line character (never navigates, as in mc) |
 | Tab | Switch panel |

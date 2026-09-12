@@ -20,7 +20,7 @@ here so the cost of unfreezing the others stays visible. See
 | Up / Down | Move cursor | done | |
 | PgUp / PgDn | Page | done | |
 | Home / End | First / last entry | done | |
-| Enter | Descend, or execute file | partial | Descends; no execute yet |
+| Enter | Descend, or execute file | different | Descends. On a file it opens the viewer for text, and says so for a binary or a provider item. Never executes: nothing in mc-powershell runs a file, and read-only mode could not guard it |
 | Ctrl+PgUp | Parent directory (`[panel] CdParent`) | done | mc's actual binding |
 | Backspace | Delete a character on the command line (`[input]`) | done | |
 | Backspace on an empty command line | Nothing (`[panel]` binds no Backspace) | done | Was "go up a directory" until 2026-09-06; removed for parity |

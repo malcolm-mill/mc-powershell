@@ -192,6 +192,47 @@ try {
     Assert-That 'F3 on ".." declines rather than opening a directory' {
         $state.Message -match 'F3 views files' -or $state.Message -match 'directory'
     }
+
+    # Enter (and a click on the highlighted row, which dispatches Enter) on a
+    # leaf. mc would execute the file; we view text and refuse the rest, so
+    # every case below must end in a message without opening the modal viewer.
+    Write-Host "`nViewer: Enter on a leaf" -ForegroundColor Cyan
+    $s2 = New-McAppState -LeftPath $tmp -RightPath 'Env:'
+    Write-McFrame $screen $s2
+
+    $utf8Index = -1
+    $binIndex = -1
+    for ($i = 0; $i -lt $s2.Left.Entries.Count; $i++) {
+        if ($s2.Left.Entries[$i].Name -eq 'utf8.txt') { $utf8Index = $i }
+        if ($s2.Left.Entries[$i].Name -eq 'binary.bin') { $binIndex = $i }
+    }
+    Assert-That 'the fixture files are listed' { $utf8Index -ge 0 -and $binIndex -ge 0 }
+
+    Assert-That 'a text file resolves to a viewable path' {
+        (Get-McViewablePath $s2.Left.Entries[$utf8Index]) -eq $utf8
+    }
+    Assert-That '".." does not resolve to a viewable path' {
+        $null -eq (Get-McViewablePath $s2.Left.Entries[0])
+    }
+
+    Set-McPanelCursor $s2.Left $binIndex
+    $s2.Message = $null
+    Invoke-McKey $s2 $screen 'enter'
+    Assert-That 'Enter on a binary file says so instead of opening the viewer' {
+        $s2.Message -match 'binary'
+    }
+    Assert-That 'and stays in the same directory' { $s2.Left.Location -eq $tmp }
+
+    $s2.ActiveSide = 'Right'
+    Set-McPanelCursor $s2.Right 1
+    $envEntry = Get-McPanelCurrent $s2.Right
+    Assert-That 'an Env: entry is a leaf' { -not $envEntry.IsContainer }
+    Assert-That 'an Env: entry has no viewable path' { $null -eq (Get-McViewablePath $envEntry) }
+    $s2.Message = $null
+    Invoke-McKey $s2 $screen 'enter'
+    Assert-That 'Enter on a provider leaf explains there is no file' {
+        $s2.Message -match 'not a file on disk'
+    }
 } finally {
     Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }

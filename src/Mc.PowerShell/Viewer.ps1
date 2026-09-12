@@ -44,6 +44,49 @@ function Test-McBinaryContent {
     $false
 }
 
+function Read-McFileHead {
+    <# The first block of a file, for encoding and binary sniffing. #>
+    param([string] $Path, [int] $Size = 8192)
+
+    $length = [System.IO.FileInfo]::new($Path).Length
+    $headSize = [int][Math]::Min($length, $Size)
+    $head = [byte[]]::new($headSize)
+    if ($headSize -gt 0) {
+        $fs = [System.IO.File]::OpenRead($Path)
+        try { [void]$fs.Read($head, 0, $headSize) } finally { $fs.Dispose() }
+    }
+    # The comma stops PowerShell unrolling an empty array into nothing.
+    ,$head
+}
+
+function Test-McBinaryFile {
+    <# True if the file on disk looks binary; false if it is text or unreadable. #>
+    param([string] $Path)
+    try { Test-McBinaryContent (Read-McFileHead $Path) } catch { $false }
+}
+
+function Get-McViewablePath {
+    <#
+      The on-disk path behind a panel entry, or $null if there is none.
+      Provider items (Env:, HKLM:, Cert:) are not necessarily files; only
+      what exists on disk as a leaf is viewable.
+    #>
+    param($Entry)
+
+    if ($null -eq $Entry -or $Entry.IsContainer) { return $null }
+    $path = $Entry.Key
+    if (-not $path) { return $null }
+
+    # Test-Path -PathType Leaf is true for an Env: variable too, so ask which
+    # provider owns the path rather than trusting "leaf" alone.
+    try {
+        $info = Resolve-Path -LiteralPath $path -ErrorAction Stop
+        if ($info.Provider.Name -ne 'FileSystem') { return $null }
+        if ([System.IO.File]::Exists($info.ProviderPath)) { return $info.ProviderPath }
+    } catch { }
+    $null
+}
+
 function Read-McViewerFile {
     <#
       Load a file for viewing. Returns a hashtable with Lines, Encoding, Binary
@@ -52,15 +95,8 @@ function Read-McViewerFile {
     param([string] $Path, [int] $MaxLines = 500000)
 
     try {
-        $info = [System.IO.FileInfo]::new($Path)
-        $length = $info.Length
-
-        $headSize = [Math]::Min(8192, [int][Math]::Min($length, 8192))
-        $head = [byte[]]::new($headSize)
-        if ($headSize -gt 0) {
-            $fs = [System.IO.File]::OpenRead($Path)
-            try { [void]$fs.Read($head, 0, $headSize) } finally { $fs.Dispose() }
-        }
+        $length = [System.IO.FileInfo]::new($Path).Length
+        $head = Read-McFileHead $Path
 
         if (Test-McBinaryContent $head) {
             return @{
@@ -104,19 +140,38 @@ function Invoke-McViewCurrent {
     if ($null -eq $entry) { return }
     if ($entry.IsContainer) { $State.Message = 'Enter opens a directory; F3 views files'; return }
 
-    $path = $entry.Key
-    if (-not $path) { $State.Message = "Nothing to view for $($entry.Name)"; return }
-
-    # Provider items are not necessarily files; view what is on disk only.
-    $resolved = $null
-    try {
-        if (Test-Path -LiteralPath $path -PathType Leaf -ErrorAction Stop) {
-            $resolved = (Convert-Path -LiteralPath $path -ErrorAction Stop)
-        }
-    } catch { $resolved = $null }
-
+    $resolved = Get-McViewablePath $entry
     if (-not $resolved) {
         $State.Message = "$($entry.Name) is not a file on disk"
+        return
+    }
+
+    Show-McViewer $Screen $State $resolved
+}
+
+function Invoke-McOpenCurrent {
+    <#
+      Enter, or a click on the highlighted row, when that row is a leaf.
+
+      mc executes the file here. We never execute anything -- it would be
+      unguardable in read-only mode -- so the gesture opens the viewer for a
+      text file and says so for anything else. Recorded in docs/COMPAT.md as
+      a deliberate difference.
+    #>
+    param($Screen, [hashtable] $State)
+
+    $entry = Get-McPanelCurrent (Get-McActivePanel $State)
+    if ($null -eq $entry -or $entry.IsContainer) { return }
+
+    $resolved = Get-McViewablePath $entry
+    if (-not $resolved) {
+        $State.Message = "$($entry.Name) is not a file on disk"
+        return
+    }
+
+    # A click on notepad.exe should not fill the screen with a placeholder.
+    if (Test-McBinaryFile $resolved) {
+        $State.Message = "$($entry.Name) is a binary file -- not executed (F3 for details)"
         return
     }
 

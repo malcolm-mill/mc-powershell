@@ -8,6 +8,16 @@ follow [Semantic Versioning](https://semver.org); see
 
 ## [Unreleased]
 
+### Added
+- Enter, or a click on the highlighted row, opens a text file in the viewer.
+  A binary file or a provider item (`Env:`, `HKLM:`) gets a message instead.
+  mc executes the file here; mc-powershell never executes anything, so this
+  is recorded in `docs/COMPAT.md` as a deliberate difference.
+
+### Fixed
+- F3 on an `Env:` variable no longer tries to open it as a file: the viewer
+  now checks the path belongs to the FileSystem provider.
+
 ## [0.5.0] - 2026-09-06
 
 ### Added

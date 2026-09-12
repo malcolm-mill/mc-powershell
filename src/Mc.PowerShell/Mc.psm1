@@ -126,6 +126,8 @@ Export-ModuleMember -Function @(
     'Invoke-McMouse'
     'Show-McViewer'
     'Invoke-McViewCurrent'
+    'Invoke-McOpenCurrent'
+    'Get-McViewablePath'
     'Read-McViewerFile'
     'Find-McViewerMatch'
     'Get-McFileEncoding'

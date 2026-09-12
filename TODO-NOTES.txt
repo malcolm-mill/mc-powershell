@@ -8,20 +8,14 @@ Numbers refer to TODO.txt.
 
 1. Clicking a text file should open it in the internal viewer
 -------------------------------------------------------------
-Now:   click selects a row; click on the selected row (or double-click)
-       dispatches Enter. Enter on a file only sets the message
-       "<name> -- no action bound yet (F3 to view)".
-Where: Invoke-McKey 'enter' branch, src/Mc.PowerShell/App.ps1 (leaf case).
-       Invoke-McViewCurrent in src/Mc.PowerShell/Viewer.ps1 already does the
-       work, including checking the entry is a real file on disk.
-Decide: mc's Enter on a file *executes* it. We do not execute, and must not
-       in read-only mode. Options:
-         a) Enter/click views anything viewable. Simple, safe. Diverges from mc.
-         b) Enter views text, refuses to execute with a message pointing at F3/F4.
-         c) Execute in read-write, view in read-only.
-       Leaning (a). Record the choice in docs/COMPAT.md (Enter row is
-       "partial"; must not overstate parity).
-Also:  Read-McViewerFile detects binary, so a click on a .exe should say so.
+Done (option a): Enter, or a click on the highlighted row, opens the viewer
+for a text file. Binary files and provider items get a status message; mc's
+"execute" is never done. Invoke-McOpenCurrent in src/Mc.PowerShell/Viewer.ps1;
+Get-McViewablePath is the shared resolver F3 uses too. docs/COMPAT.md Enter
+row is now "different". Tests: tests/Interface.ps1, "Enter on a leaf".
+Found on the way: F3 on an Env: entry passed the old "is it a leaf" check,
+because Test-Path -PathType Leaf is true for a variable. Fixed by checking
+the provider.
 
 
 2. Markdown rendering in the internal viewer for .md files
