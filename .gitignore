@@ -10,3 +10,7 @@ src/Mc.PowerShell/Mc.Native.pdb
 *.user
 Thumbs.db
 desktop.ini
+
+# Jekyll (GitHub Pages) local build
+_site/
+.jekyll-cache/

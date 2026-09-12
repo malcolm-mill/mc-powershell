@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-mc-powershell: Midnight Commander's two-panel UI over PowerShell's object model. Panels list objects from any PSProvider (`C:\`, `HKLM:`, `Env:`, `Cert:`), not just files. Pre-release 0.x, Windows only, GPL-3.0-or-later. Read `README.md` and `docs/ARCHITECTURE.md` first; `docs/COMPAT.md` is the behaviour spec.
+mc-powershell: Midnight Commander's two-panel UI over PowerShell's object model. Panels list objects from any PSProvider (`C:\`, `HKLM:`, `Env:`, `Cert:`), not just files. Pre-release 0.x, Windows only, GPL-3.0-or-later. Read `README.md` and `docs/ARCHITECTURE.md` first; `docs/COMPAT.md` is the behaviour spec. The same files are published as a GitHub Pages site from the root of `main` (`_config.yml`), with README as the front page, so keep links between them relative.
 
 ## TODO.txt
 

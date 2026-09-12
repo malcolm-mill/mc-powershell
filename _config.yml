@@ -1,0 +1,22 @@
+# GitHub Pages: https://malcolm-mill.github.io/mc-powershell/
+#
+# The site is the repository itself, served from the root of main, so every
+# relative link between README.md, CHANGELOG.md and docs/*.md works both on
+# GitHub and on the site (jekyll-relative-links rewrites .md links to pages).
+# README.md is the front page. Source and tests are excluded from the build.
+
+title: mc-powershell
+description: Midnight Commander's two-panel UI over PowerShell's object model.
+theme: jekyll-theme-minimal
+show_downloads: false
+
+exclude:
+  - src/
+  - tests/
+  - tools/
+  - build.ps1
+  - mc.ps1
+  - TODO.txt
+  - CLAUDE.md
+  - node_modules/
+  - vendor/

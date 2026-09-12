@@ -9,6 +9,8 @@ anything a module mounts as a PSDrive, each with columns that make sense for
 that provider. That is the whole reason this exists in PowerShell rather than
 as a C# rewrite of mc.
 
+Documentation site: [malcolm-mill.github.io/mc-powershell](https://malcolm-mill.github.io/mc-powershell/)
+
 **Status: pre-release (0.x), not shippable.** Navigation, the viewer, the
 menu bar and the subshell work; file operations do not yet. See
 [docs/ROADMAP.md](docs/ROADMAP.md) for what is coming, [CHANGELOG.md](CHANGELOG.md)
