@@ -1,0 +1,70 @@
+TODO-NOTES.txt -- Claude's scratch pad for TODO.txt
+===================================================
+
+TODO.txt is the owner's list and is not edited by Claude. This file holds
+working notes per item: where the code is, what is diagnosed, what to decide.
+Numbers refer to TODO.txt.
+
+
+1. Clicking a text file should open it in the internal viewer
+-------------------------------------------------------------
+Now:   click selects a row; click on the selected row (or double-click)
+       dispatches Enter. Enter on a file only sets the message
+       "<name> -- no action bound yet (F3 to view)".
+Where: Invoke-McKey 'enter' branch, src/Mc.PowerShell/App.ps1 (leaf case).
+       Invoke-McViewCurrent in src/Mc.PowerShell/Viewer.ps1 already does the
+       work, including checking the entry is a real file on disk.
+Decide: mc's Enter on a file *executes* it. We do not execute, and must not
+       in read-only mode. Options:
+         a) Enter/click views anything viewable. Simple, safe. Diverges from mc.
+         b) Enter views text, refuses to execute with a message pointing at F3/F4.
+         c) Execute in read-write, view in read-only.
+       Leaning (a). Record the choice in docs/COMPAT.md (Enter row is
+       "partial"; must not overstate parity).
+Also:  Read-McViewerFile detects binary, so a click on a .exe should say so.
+
+
+2. Markdown rendering in the internal viewer for .md files
+----------------------------------------------------------
+Where: Show-McViewer / Read-McViewerFile in src/Mc.PowerShell/Viewer.ps1.
+       Viewer currently renders plain lines with wrap, line numbers, goto,
+       search. README calls markdown "the plumbing they sit on".
+Notes: needs a formatted-line model (per-line attributes) rather than plain
+       strings before rendering headings, emphasis, code blocks. Decide
+       whether search/goto operate on source lines or rendered lines.
+       Toggle between raw and rendered would follow mc's F8 (raw/parsed).
+Status: not started.
+
+
+3. VERSION.txt in the project root, updated with every version change
+---------------------------------------------------------------------
+Where: docs/VERSIONING.md says Mc.psd1 ModuleVersion is the single source of
+       truth; tests/Lint.ps1 checks manifest, changelog and Get-McVersion agree.
+Notes: add VERSION.txt, add a lint assertion that it equals ModuleVersion so
+       it cannot drift, and add the step to "Cutting a release" in
+       docs/VERSIONING.md. Content: the bare version string, e.g. 0.5.0.
+Status: not started.
+
+
+4. TODO-NOTES.txt as Claude's scratch pad
+-----------------------------------------
+Done: this file. Process recorded in CLAUDE.md.
+
+
+Not on TODO.txt, diagnosed earlier -- registry navigation does not open keys
+----------------------------------------------------------------------------
+Symptom: in a registry panel, Enter/click on a subkey does nothing, silently.
+Two faults:
+  (a) PSProvider source's Descend uses Convert-Path, which returns the
+      provider-internal path (HKEY_LOCAL_MACHINE\SOFTWARE\7-Zip), not a
+      drive-qualified one. Nothing can handle it: FileSystem's Test wants a
+      drive letter, Test-Path rejects it, Get-McPanelSource throws.
+      Fix: build the child path from the current location
+      (Join-Path $Location $Entry.Name) and only Convert-Path when the
+      provider is FileSystem. Worth a helper next to Get-McParentPath in
+      src/Mc.PowerShell/Sources.ps1; Cert: and module drives will hit the same.
+  (b) The failure is silent. Set-McPanelLocation returns $false and reverts,
+      but Invoke-McPanelEnter discards that with [void] and sets no message.
+      Worth fixing regardless of (a).
+Tests: tests/KeySequence.ps1 only descends on the filesystem. Add a provider
+       case (descend into HKLM:\SOFTWARE\<key>, assert Location changed).
