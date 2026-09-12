@@ -20,14 +20,16 @@ the provider.
 
 2. Markdown rendering in the internal viewer for .md files
 ----------------------------------------------------------
-Where: Show-McViewer / Read-McViewerFile in src/Mc.PowerShell/Viewer.ps1.
-       Viewer currently renders plain lines with wrap, line numbers, goto,
-       search. README calls markdown "the plumbing they sit on".
-Notes: needs a formatted-line model (per-line attributes) rather than plain
-       strings before rendering headings, emphasis, code blocks. Decide
-       whether search/goto operate on source lines or rendered lines.
-       Toggle between raw and rendered would follow mc's F8 (raw/parsed).
-Status: not started.
+Done. src/Mc.PowerShell/Markdown.ps1 is a pure converter: source lines ->
+formatted lines of coloured, attributed segments, one per source line, so
+line numbers, goto and search are untouched. The viewer paints segments
+in both modes (plain mode is one segment per line). F9 toggles, matching
+mc's Format key (F8 is mc's Raw/Parsed for hex, so not used).
+Subset: ATX/setext headings, fenced and indented code, quotes, lists,
+rules, tables, inline bold/italic/code/links/images, escapes. Italic is
+underlined; the cell grid has no italic attribute.
+Not done: nested lists beyond indentation, reference-style links, HTML.
+Tests: tests/Interface.ps1, "Viewer: markdown".
 
 
 3. VERSION.txt in the project root, updated with every version change

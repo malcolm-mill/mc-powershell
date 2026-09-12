@@ -41,6 +41,8 @@
         'Read-McViewerFile'
         'Find-McViewerMatch'
         'Get-McFileEncoding'
+        'Convert-McMarkdown'
+        'Get-McSegmentSlice'
         'Show-McDriveChooser'
         'Show-McSortMenu'
         'Get-McPanelCurrent'

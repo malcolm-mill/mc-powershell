@@ -184,6 +184,63 @@ try {
     Assert-That 'searches backwards'           { (Find-McViewerMatch $hay 'beta' 3 -Backwards) -eq 1 }
     Assert-That 'reports no match as -1'       { (Find-McViewerMatch $hay 'zeta' 0) -eq -1 }
 
+    Write-Host "`nViewer: markdown" -ForegroundColor Cyan
+    $md = @(
+        '# Title'
+        'Some **bold** and *it* and `code` and [link](http://x) here.'
+        ''
+        'Setext'
+        '======'
+        '- item'
+        '> quoted'
+        '---'
+        '```powershell'
+        '**not bold**'
+        '```'
+        'snake_case_name'
+        'trailing \* escaped'
+    )
+    $r = Convert-McMarkdown $md
+    $plain = { param($l) -join ($l.Segs | ForEach-Object { $_.Text }) }
+    Assert-That 'one formatted line per source line' { $r.Count -eq $md.Count }
+    Assert-That 'a heading loses its hashes and is bold' {
+        $r[0].Text -eq 'Title' -and ($r[0].Segs[0].Attr -band 1) -ne 0
+    }
+    Assert-That 'markers are stripped from the plain text' {
+        $r[1].Text -eq 'Some bold and it and code and link here.'
+    }
+    Assert-That 'bold is bold and nothing after it is' {
+        $s = $r[1].Segs
+        ($s[1].Text -eq 'bold') -and (($s[1].Attr -band 1) -ne 0) -and ($s[2].Attr -eq 0)
+    }
+    Assert-That 'italic is underlined' {
+        $s = $r[1].Segs | Where-Object { $_.Text -eq 'it' }
+        ($s.Attr -band 4) -ne 0
+    }
+    Assert-That 'a code span takes the code colour' {
+        ($r[1].Segs | Where-Object { $_.Text -eq 'code' }).Fg -eq $script:McTheme.ViewCodeFg -or
+        ($r[1].Segs | Where-Object { $_.Text -eq 'code' }).Fg -eq 10
+    }
+    Assert-That 'a link shows its text, not its url' {
+        $r[1].Text -notmatch 'http' -and @($r[1].Segs | Where-Object { $_.Text -eq 'link' }).Count -eq 1
+    }
+    Assert-That 'a setext underline promotes the line above to a heading' {
+        $r[3].Kind -eq 'heading' -and $r[4].Kind -eq 'underline'
+    }
+    Assert-That 'a bullet becomes a bullet' { $r[5].Text -match '^• item$' }
+    Assert-That 'a quote gets a bar and loses the >' { $r[6].Text -match '^│ quoted$' }
+    Assert-That 'a rule is a rule' { $r[7].Rule }
+    Assert-That 'fenced code is left verbatim' {
+        $r[9].Kind -eq 'code' -and $r[9].Text -eq '**not bold**'
+    }
+    Assert-That 'underscores inside a word are not emphasis' { $r[11].Text -eq 'snake_case_name' }
+    Assert-That 'a backslash escape yields the literal' { $r[12].Text -eq 'trailing * escaped' }
+    Assert-That 'a slice keeps segment boundaries' {
+        $slice = Get-McSegmentSlice $r[1].Segs 5 8
+        $slice.Count -eq 2 -and $slice[0].Text -eq 'bold' -and $slice[1].Text -eq ' and'
+    }
+    Assert-That 'a slice past the end is empty' { (Get-McSegmentSlice $r[1].Segs 500 8).Count -eq 0 }
+
     Write-Host "`nViewer: dispatch" -ForegroundColor Cyan
     $state.ActiveSide = 'Left'
     Set-McPanelCursor $state.Left 0

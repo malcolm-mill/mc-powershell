@@ -9,6 +9,11 @@ follow [Semantic Versioning](https://semver.org); see
 ## [Unreleased]
 
 ### Added
+- Markdown in the viewer: a `.md` file opens formatted, with headings,
+  bold, italic (underlined, as mc's nroff mode does), code, links, lists,
+  quotes, rules and tables. F9 toggles formatted and raw, mc's Format key.
+  Formatting keeps one line per source line, so line numbers, go to line
+  and search are unchanged.
 - Enter, or a click on the highlighted row, opens a text file in the viewer.
   A binary file or a provider item (`Env:`, `HKLM:`) gets a message instead.
   mc executes the file here; mc-powershell never executes anything, so this

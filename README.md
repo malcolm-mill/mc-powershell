@@ -148,9 +148,15 @@ rather than being destroyed -- and refuses to spew a binary file at you.
 | F4 | Line numbers on/off |
 | F5 | Go to line |
 | F7 | Search; `n` and `N` for next and previous |
+| F9 | Formatted / raw (mc's Format key) |
 | F3, F10, Esc, `q` | Close |
 
-Markdown rendering and a hex mode come later; this is the plumbing they sit on.
+A `.md` file opens formatted: headings, emphasis, code, links, lists, quotes,
+rules and tables are drawn with colour and attributes rather than their
+markers, and italics are underlined as mc's nroff mode does. F9 shows the
+source. Line numbers, go to line and search mean the same thing in both
+modes because formatting never adds or removes a line. A hex mode comes
+later.
 
 ## The shell
 

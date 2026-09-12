@@ -42,7 +42,7 @@ here so the cost of unfreezing the others stays visible. See
 |---|---|---|---|
 | F1 | Help | todo | |
 | F2 | User menu | different | Currently the drive/provider chooser — the project's headline feature earns the slot. User menu moves to the F9 menu bar. |
-| F3 | View | done | Built-in viewer: encoding detection, wrap, line numbers, goto, search. Hex mode and markdown are later |
+| F3 | View | done | Built-in viewer: encoding detection, wrap, line numbers, goto, search, markdown formatting with F9 as mc's Format toggle. Hex mode is later |
 | F4 | Edit | todo | Will shell out to EDITOR first |
 | F5 | Copy | todo | M3 |
 | F6 | Rename / move | todo | M3 |

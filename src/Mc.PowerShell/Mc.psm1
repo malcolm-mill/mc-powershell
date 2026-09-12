@@ -91,6 +91,7 @@ only this session is stuck on the old one.
 . (Join-Path $PSScriptRoot 'Sources.ps1')
 . (Join-Path $PSScriptRoot 'Panel.ps1')
 . (Join-Path $PSScriptRoot 'Menu.ps1')
+. (Join-Path $PSScriptRoot 'Markdown.ps1')
 . (Join-Path $PSScriptRoot 'Viewer.ps1')
 . (Join-Path $PSScriptRoot 'Render.ps1')
 . (Join-Path $PSScriptRoot 'App.ps1')
@@ -131,6 +132,8 @@ Export-ModuleMember -Function @(
     'Read-McViewerFile'
     'Find-McViewerMatch'
     'Get-McFileEncoding'
+    'Convert-McMarkdown'
+    'Get-McSegmentSlice'
     'Show-McDriveChooser'
     'Show-McSortMenu'
     'Get-McPanelCurrent'

@@ -187,7 +187,9 @@ function Show-McViewer {
         F4                                  line numbers on/off
         F5                                  go to line
         F7                                  search;  n / N  next / previous
+        F9                                  formatted / raw (mc's Format key)
         F3 / F10 / Esc                      close
+      Markdown files open formatted (see Markdown.ps1); F9 shows the source.
       The mouse works too: wheel scrolls, and a click on the key bar acts as
       that F-key.
     #>
@@ -210,9 +212,15 @@ function Show-McViewer {
     $search = ''
     $matchLine = -1
 
+    # Formatting keeps one display line per source line, so $count, line
+    # numbers and "go to line" mean the same thing in both modes.
+    $formatted = $Path -match '\.(md|markdown|mdown|mkd)$'
+    $rendered = $null
+    $renderedText = $null
+
     $keyLabels = @(
         '1', 'Help', '2', 'Wrap', '3', 'Quit', '4', 'LineNo', '5', 'Goto',
-        '6', '', '7', 'Search', '8', '', '9', '', '10', 'Quit'
+        '6', '', '7', 'Search', '8', '', '9', 'Format', '10', 'Quit'
     )
 
     while ($true) {
@@ -226,21 +234,37 @@ function Show-McViewer {
         $gutter = if ($numbers) { ([string]$count).Length + 1 } else { 0 }
         $textW = [Math]::Max(1, $w - $gutter)
 
+        if ($formatted -and $null -eq $rendered) {
+            $rendered = Convert-McMarkdown $lines
+            $renderedText = [string[]]@($rendered | ForEach-Object { $_.Text })
+        }
+        $searchLines = if ($formatted) { $renderedText } else { $lines }
+
         $display = [System.Collections.Generic.List[object]]::new()
         $i = $top
         while ($display.Count -lt $rows -and $i -lt $count) {
-            $line = [string]$lines[$i]
-            $line = $line -replace "`t", '    '
+            if ($formatted) {
+                $fl = $rendered[$i]
+                if ($fl.Rule) {
+                    $line = ''
+                    $segs = @(New-McSeg ([string]::new([char]0x2500, $textW)) $t.ViewLineNoFg)
+                } else {
+                    $line = $fl.Text
+                    $segs = $fl.Segs
+                }
+            } else {
+                $line = ([string]$lines[$i]) -replace "`t", '    '
+                $segs = @(New-McSeg $line)
+            }
+
             if ($wrap -and $line.Length -gt $textW) {
                 $offset = 0
                 while ($offset -lt $line.Length -and $display.Count -lt $rows) {
-                    $chunk = $line.Substring($offset, [Math]::Min($textW, $line.Length - $offset))
-                    [void]$display.Add(@{ Number = $i; Text = $chunk; First = ($offset -eq 0) })
+                    [void]$display.Add(@{ Number = $i; Segs = (Get-McSegmentSlice $segs $offset $textW); First = ($offset -eq 0) })
                     $offset += $textW
                 }
             } else {
-                $text = if ($left -lt $line.Length) { $line.Substring($left) } else { '' }
-                [void]$display.Add(@{ Number = $i; Text = $text; First = $true })
+                [void]$display.Add(@{ Number = $i; Segs = (Get-McSegmentSlice $segs $left $textW); First = $true })
             }
             $i++
         }
@@ -265,14 +289,23 @@ function Show-McViewer {
             }
 
             $isMatch = ($search -and $row.Number -eq $matchLine)
-            $fg = if ($isMatch) { [byte]$t.ViewMatchFg } else { [byte]$t.ViewFg }
             $bg = if ($isMatch) { [byte]$t.ViewMatchBg } else { [byte]$t.ViewBg }
-            $Screen.WriteFixed($gutter, $y, $row.Text, $textW, $fg, $bg, $script:AttrNone)
+            $x = $gutter
+            foreach ($s in $row.Segs) {
+                $fg = if ($isMatch) { [byte]$t.ViewMatchFg }
+                      elseif ($null -ne $s.Fg) { [byte]$s.Fg }
+                      else { [byte]$t.ViewFg }
+                $x += $Screen.Write($x, $y, $s.Text, $fg, $bg, [byte]$s.Attr)
+            }
+            if ($x -lt $gutter + $textW) {
+                $Screen.Fill($x, $y, $gutter + $textW - $x, 1, ' ', [byte]$t.ViewFg, $bg, $script:AttrNone)
+            }
         }
 
         # --- status and key bar ---------------------------------------------
         $percent = if ($count -le 0) { 100 } else { [int](100 * [Math]::Min(1.0, ($top + $rows) / [double]$count)) }
         $flags = @()
+        if ($formatted) { $flags += 'formatted' }
         if ($wrap) { $flags += 'wrap' }
         if ($numbers) { $flags += 'numbers' }
         if ($file.Truncated) { $flags += 'TRUNCATED' }
@@ -325,6 +358,7 @@ function Show-McViewer {
 
             'f2'    { $wrap = -not $wrap; $left = 0 }
             'f4'    { $numbers = -not $numbers }
+            'f9'    { $formatted = -not $formatted; $left = 0 }
 
             'f5' {
                 $answer = Read-McViewerPrompt $Screen $State 'Go to line' ''
@@ -340,26 +374,26 @@ function Show-McViewer {
                 $answer = Read-McViewerPrompt $Screen $State 'Search for' $search
                 if ($answer) {
                     $search = $answer
-                    $found = Find-McViewerMatch $lines $search ($top)
+                    $found = Find-McViewerMatch $searchLines $search ($top)
                     if ($found -ge 0) { $top = $found; $matchLine = $found }
                     else { $matchLine = -1 }
                 }
             }
             'n' {
                 if ($search) {
-                    $found = Find-McViewerMatch $lines $search ($top + 1)
+                    $found = Find-McViewerMatch $searchLines $search ($top + 1)
                     if ($found -ge 0) { $top = $found; $matchLine = $found }
                 }
             }
             'S-n' {
                 if ($search) {
-                    $found = Find-McViewerMatch $lines $search ($top - 1) -Backwards
+                    $found = Find-McViewerMatch $searchLines $search ($top - 1) -Backwards
                     if ($found -ge 0) { $top = $found; $matchLine = $found }
                 }
             }
             'N' {
                 if ($search) {
-                    $found = Find-McViewerMatch $lines $search ($top - 1) -Backwards
+                    $found = Find-McViewerMatch $searchLines $search ($top - 1) -Backwards
                     if ($found -ge 0) { $top = $found; $matchLine = $found }
                 }
             }

@@ -46,6 +46,8 @@ Script changes need no rebuild: `Import-Module ./src/Mc.PowerShell/Mc.psd1 -Forc
 
 **Key dispatch is a table.** `$script:McKeymap` in `App.ps1` maps canonical key name to `{ param($S, $Scr) ... }`. `Invoke-McKey` handles Enter specially (runs the command line if non-empty, else descends), then the keymap, then falls through to command-line editing for unclaimed keys. Anything modal (`Show-McList`, `Show-McMenu`, `Show-McViewer`, `Show-McDriveChooser`, the subshell) blocks on `[Mc.Native.Input]::Read` and cannot be driven headlessly; keep the logic they call (file loading, hit testing, layout) in separate functions that can.
 
+**The viewer paints segments.** `Markdown.ps1` is a pure converter from source lines to formatted lines of `@{Text; Fg; Attr}` segments, always one per source line so line numbers and search are untouched. `Show-McViewer` paints segments in both modes; plain mode wraps each line in one segment. F9 toggles, as mc's Format key.
+
 **Safety has two tiers, not one.** `Guard.ps1`: the app starts read-only and the mode is never persisted. `Assert-McWritable` is the absolute choke point; every mutating operation mc performs calls it first, and F5-F8 currently do only that. `Test-McCommandMutates` is the best-effort AST screen for the command line, output pane and subshell, plus `$WhatIfPreference`. Do not describe the screen as a sandbox; `docs/SAFETY.md` states the limits.
 
 **The command line runs in this session.** `Invoke-McShellCommand`, `Invoke-McCommandInPane` and `Invoke-McSubshell` execute in the same PowerShell process, so location, variables and modules persist. `Terminal.Init`/`Shutdown` bracket the trip out to a full-screen shell.

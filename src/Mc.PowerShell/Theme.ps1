@@ -44,6 +44,11 @@ $script:McTheme = @{
     ViewLineNoFg  = 8
     ViewMatchFg   = 0
     ViewMatchBg   = 11
+    ViewHeadingFg    = 15  # markdown: # heading, bold
+    ViewSubheadingFg = 11  # ## heading, list bullets
+    ViewCodeFg       = 10  # code spans and blocks
+    ViewLinkFg       = 14  # link text, ### and deeper headings
+    ViewQuoteFg      = 7   # block quote text, beside a dim bar
 
     KeyNumFg      = 7      # "1" in "1Help"
     KeyNumBg      = 0
