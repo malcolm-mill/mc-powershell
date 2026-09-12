@@ -235,6 +235,21 @@ try {
     }
     Assert-That 'underscores inside a word are not emphasis' { $r[11].Text -eq 'snake_case_name' }
     Assert-That 'a backslash escape yields the literal' { $r[12].Text -eq 'trailing * escaped' }
+    # A list item with a code span once came back as one nested array rather
+    # than segments, and crashed the viewer on the first file that had one.
+    Assert-That 'every segment on every line is a hashtable with string text' {
+        $bad = 0
+        foreach ($l in (Convert-McMarkdown ($md + @('- item with `code` and **bold**', '> quote with `code`', '| a `b` | c |')))) {
+            foreach ($s in $l.Segs) {
+                if ($s -isnot [hashtable] -or $s.Text -isnot [string]) { $bad++ }
+            }
+        }
+        $bad -eq 0
+    }
+    Assert-That 'a list line slices' {
+        $l = (Convert-McMarkdown @('- item with `code` here'))[0]
+        (Get-McSegmentSlice $l.Segs 0 8 | ForEach-Object { $_.Text }) -join '' -eq ([string][char]0x2022 + ' item w')
+    }
     Assert-That 'a slice keeps segment boundaries' {
         $slice = Get-McSegmentSlice $r[1].Segs 5 8
         $slice.Count -eq 2 -and $slice[0].Text -eq 'bold' -and $slice[1].Text -eq ' and'

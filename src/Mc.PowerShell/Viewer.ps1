@@ -146,7 +146,22 @@ function Invoke-McViewCurrent {
         return
     }
 
-    Show-McViewer $Screen $State $resolved
+    Show-McViewerSafe $Screen $State $resolved
+}
+
+function Show-McViewerSafe {
+    <#
+      A bug in the viewer must cost the user the viewer, not the session.
+      Start-Mc's finally restores the terminal either way, but landing at a
+      bare prompt with a stack trace is not what a file manager does.
+    #>
+    param($Screen, [hashtable] $State, [string] $Path)
+    try {
+        Show-McViewer $Screen $State $Path
+    } catch {
+        $Screen.Invalidate()
+        $State.Message = "Viewer failed: $($_.Exception.Message)"
+    }
 }
 
 function Invoke-McOpenCurrent {
@@ -175,7 +190,7 @@ function Invoke-McOpenCurrent {
         return
     }
 
-    Show-McViewer $Screen $State $resolved
+    Show-McViewerSafe $Screen $State $resolved
 }
 
 function Show-McViewer {

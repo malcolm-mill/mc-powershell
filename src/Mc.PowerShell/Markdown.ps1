@@ -122,7 +122,11 @@ function Get-McInlineSegments {
     }
 
     if ($sb.Length -gt 0) { $segs.Add((New-McSeg $sb.ToString() $Fg $Attr)) }
-    ,$segs.ToArray()
+    # Unwrapped on purpose: callers use @(...) to collect, and a comma-wrapped
+    # array inside @(...) becomes one nested element, which then crashes the
+    # viewer's slicer. Convert-McMarkdown and Get-McSegmentSlice keep the
+    # comma because their callers index the result directly.
+    $segs.ToArray()
 }
 
 function Convert-McMarkdown {
