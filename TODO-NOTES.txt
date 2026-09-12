@@ -36,10 +36,17 @@ Tests: tests/Interface.ps1, "Viewer: markdown".
 ---------------------------------------------------------------------
 Where: docs/VERSIONING.md says Mc.psd1 ModuleVersion is the single source of
        truth; tests/Lint.ps1 checks manifest, changelog and Get-McVersion agree.
-Notes: add VERSION.txt, add a lint assertion that it equals ModuleVersion so
-       it cannot drift, and add the step to "Cutting a release" in
-       docs/VERSIONING.md. Content: the bare version string, e.g. 0.5.0.
-Status: not started.
+Intent (owner, 2026-09-12): "know what I am running", plus a per-commit
+       human-readable record of what changed and why.
+Notes: the second intent is the commit log (git log); messages here already
+       carry what and why. The first is better served by git describe than
+       by a hand-written file: v0.5.0-3-ga7a68df names every commit with no
+       action per commit. Proposed shape: mc -Version and Get-McVersion
+       append git describe output when run from a checkout, bare manifest
+       version otherwise. If a plain VERSION.txt is still wanted for
+       something outside git to read, add it with a lint assertion that it
+       equals ModuleVersion, and a step in docs/VERSIONING.md.
+Status: not started; shape to confirm with the owner.
 
 
 4. TODO-NOTES.txt as Claude's scratch pad
