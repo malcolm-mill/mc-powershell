@@ -1,4 +1,2 @@
 1. Clicking a text file should open it in the internal viewer
 2. markdown viewer for 'internal viewer' so that text files with extension .md show formatted md display. 
-3. project folder should hold a text file VERSION.txt which changes every time the version does. It shows the current version. 
-4. make TODO-NOTES.txt for Claude to use as a scratch pad to hold notes on TODO.txt items. 
