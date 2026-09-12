@@ -17,6 +17,11 @@ menu bar and the subshell work; file operations do not yet. See
 for what has landed, and [docs/VERSIONING.md](docs/VERSIONING.md) for what the
 numbers mean. `mc -Version` prints the version you are running.
 
+![Two panels: C:\projects\midnight on the left, a registry key's values on the right](docs/images/screenshot.png)
+
+<details>
+<summary>The same thing as text</summary>
+
 ```
 ┌──────────── C:\projects ────────────┐┌──── HKLM:\SOFTWARE\7-Zip  [Registry] ┐
 │Name                │  Size│Modify   ││Name        │Type     │Data          │
@@ -27,6 +32,8 @@ numbers mean. `mc -Version` prints the version you are running.
 C:\projects>
 1Help  2Drive  3View  4Edit  5Copy  6RenMov  7Mkdir  8Delete  9Sort  10Quit
 ```
+
+</details>
 
 ## Quick start
 
