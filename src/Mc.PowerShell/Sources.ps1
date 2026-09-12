@@ -101,6 +101,23 @@ function Get-McParentPath {
     $parent
 }
 
+function Get-McChildPath {
+    <#
+      Drive-qualified path of an entry under a location, for descending.
+
+      Not Convert-Path: that returns the provider-internal form, which is
+      right for the filesystem and wrong for everything else --
+      HKEY_LOCAL_MACHINE\SOFTWARE\X for the registry, the bare name for
+      Env:, and an error for Cert:. Nothing can navigate to those. Joining
+      the child name onto the location we are already on stays in whatever
+      drive notation got us here.
+    #>
+    param([string] $Location, $Entry)
+    $child = [string](Get-McProp $Entry.Item 'PSChildName')
+    if ([string]::IsNullOrEmpty($child)) { $child = $Entry.Name }
+    Join-Path $Location $child
+}
+
 function Get-McLeafName {
     <# Last segment of a path, without Split-Path's wildcard expansion. #>
     param([string] $Path)
@@ -263,10 +280,18 @@ Register-McPanelSource -Source @{
             $entries.Add((New-McEntry -Name '..' -Key $parent -IsContainer $true -IsUp $true -Tag 'UP'))
         }
 
+        # An empty listing with errors is a failure, not an empty container:
+        # a registry key this account cannot read lists nothing and says
+        # "access is not allowed" on the error stream. Surface that, so the
+        # panel refuses to enter rather than showing a blank key.
         $items = @()
+        $listErrors = @()
         try {
-            $items = Get-ChildItem -LiteralPath $Location -Force:$ShowHidden -ErrorAction SilentlyContinue
-        } catch { }
+            $items = @(Get-ChildItem -LiteralPath $Location -Force:$ShowHidden -ErrorAction SilentlyContinue -ErrorVariable listErrors)
+        } catch { $listErrors = @($_) }
+        if ($items.Count -eq 0 -and $listErrors.Count -gt 0) {
+            throw ([string]$listErrors[0].Exception.Message)
+        }
 
         foreach ($item in $items) {
             $isContainer = [bool](Get-McProp $item 'PSIsContainer')
@@ -306,9 +331,7 @@ Register-McPanelSource -Source @{
         param($Location, $Entry)
         if ($Entry.IsUp) { return $Entry.Key }
         if (-not $Entry.IsContainer) { return $null }
-        # PSPath is provider-qualified; convert it back to a display path.
-        try { return (Convert-Path -LiteralPath $Entry.Key -ErrorAction Stop) }
-        catch { return (Join-Path $Location $Entry.Name) }
+        Get-McChildPath $Location $Entry
     }
 
     Title = {

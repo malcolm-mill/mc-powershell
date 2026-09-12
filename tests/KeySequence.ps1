@@ -313,6 +313,59 @@ Write-Host "`nQuit" -ForegroundColor Cyan
 Invoke-McKey $state $screen 'f10'
 Assert-That 'F10 stops the loop' { -not $state.Running }
 
+Write-Host "`nProvider navigation" -ForegroundColor Cyan
+# Descending on a provider other than the filesystem. This is the case that
+# was missing: Convert-Path stripped the drive from every provider path, so
+# Enter on a registry key went nowhere and said nothing.
+$state.ActiveSide = 'Right'
+Assert-That 'the right panel can open HKLM:\SOFTWARE' { Set-McPanelLocation $state.Right 'HKLM:\SOFTWARE' }
+Write-McFrame $screen $state
+$subkey = -1
+for ($i = 0; $i -lt $state.Right.Entries.Count; $i++) {
+    if ($state.Right.Entries[$i].IsContainer -and -not $state.Right.Entries[$i].IsUp) { $subkey = $i; break }
+}
+Assert-That 'HKLM:\SOFTWARE lists at least one subkey' { $subkey -ge 0 }
+$subkeyName = $state.Right.Entries[$subkey].Name
+Set-McPanelCursor $state.Right $subkey
+$state.Message = $null
+Invoke-McKey $state $screen 'enter'
+Assert-That 'Enter descends into the subkey' {
+    $state.Right.Location -eq "HKLM:\SOFTWARE\$subkeyName"
+}
+Assert-That 'the location stays drive-qualified, not HKEY_LOCAL_MACHINE\...' {
+    $state.Right.Location -like 'HKLM:*'
+}
+Assert-That 'and no error was reported' { $null -eq $state.Message }
+Invoke-McKey $state $screen 'C-pgup'
+Assert-That 'Ctrl+PgUp returns to HKLM:\SOFTWARE' { $state.Right.Location -eq 'HKLM:\SOFTWARE' }
+Assert-That 'with the cursor back on the subkey we left' {
+    (Get-McPanelCurrent $state.Right).Name -eq $subkeyName
+}
+
+# A navigation that fails must say why. Point an entry at a key that does
+# not exist and press Enter on it.
+$ghost = $state.Right.Entries[$subkey]
+$ghost.Name = 'mc-powershell-no-such-key'
+$ghost.Item = $null
+Set-McPanelCursor $state.Right $subkey
+$state.Message = $null
+Invoke-McKey $state $screen 'enter'
+Assert-That 'a failed descend stays where it was' { $state.Right.Location -eq 'HKLM:\SOFTWARE' }
+Assert-That 'and says why on the message line' {
+    $state.Message -match 'Cannot open' -and $state.Message -match 'mc-powershell-no-such-key'
+}
+
+# A key the account cannot read is refused with the provider's reason, not
+# shown as an empty key. Only asserted where this account is in fact refused,
+# so an elevated CI runner cannot make it flaky.
+$denied = @()
+$null = Get-ChildItem 'HKLM:\SECURITY' -ErrorAction SilentlyContinue -ErrorVariable denied
+if ($denied.Count -gt 0) {
+    Assert-That 'an unreadable key is refused' { -not (Set-McPanelLocation $state.Right 'HKLM:\SECURITY') }
+    Assert-That 'with the provider''s reason' { $state.Right.NavError -match 'not allowed' }
+    Assert-That 'and the panel is still where it was' { $state.Right.Location -eq 'HKLM:\SOFTWARE' }
+}
+
 Write-Host ''
 if ($script:fail -eq 0) {
     Write-Host "$script:pass passed, 0 failed" -ForegroundColor Green

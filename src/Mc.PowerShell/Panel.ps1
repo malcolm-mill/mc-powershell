@@ -23,7 +23,8 @@ function New-McPanel {
         Descending = $false
         ShowHidden = $false
         Marked     = @{}        # Key -> $true
-        Error      = $null
+        Error      = $null      # listing failed at the current location
+        NavError   = $null      # the last navigation was refused; why
     }
 
     Update-McPanel $panel
@@ -103,6 +104,7 @@ function Set-McPanelLocation {
     )
 
     $previous = $Panel.Location
+    $Panel.NavError = $null
     $Panel.Location = $Location
     $Panel.Index = 0
     $Panel.Top = 0
@@ -110,7 +112,11 @@ function Set-McPanelLocation {
     Update-McPanel $Panel
 
     if ($Panel.Error) {
-        # Navigation failed: stay where we were rather than stranding the user.
+        # Navigation failed: stay where we were rather than stranding the
+        # user, but keep the reason. Reverting clears Panel.Error, and a
+        # navigation that fails without saying why is how the registry
+        # descend bug stayed hidden.
+        $Panel.NavError = "Cannot open $($Location): $($Panel.Error)"
         $Panel.Location = $previous
         Update-McPanel $Panel
         return $false

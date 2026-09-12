@@ -135,7 +135,7 @@ function Show-McDriveChooser {
     }
 
     if (-not (Set-McPanelLocation $panel $target)) {
-        $State.Message = "Cannot open $target"
+        $State.Message = $panel.NavError
     }
     $Screen.Invalidate()
 }
@@ -620,7 +620,11 @@ $script:McKeymap = @{
     'backspace' = { param($S, $Scr) Invoke-McBackspace $S }
     'C-h'       = { param($S, $Scr) Invoke-McBackspace $S }   # mc: [input] Backspace = backspace; ctrl-h
 
-    'C-pgup'    = { param($S, $Scr) Invoke-McPanelUp (Get-McActivePanel $S) }   # mc: [panel] CdParent
+    'C-pgup'    = { param($S, $Scr)                                              # mc: [panel] CdParent
+                        $p = Get-McActivePanel $S
+                        Invoke-McPanelUp $p
+                        if ($p.NavError) { $S.Message = $p.NavError }
+                    }
 
     'ins'       = { param($S, $Scr) Switch-McPanelMark (Get-McActivePanel $S) -Advance }
 
@@ -680,6 +684,7 @@ function Invoke-McKey {
         $panel = Get-McActivePanel $State
         $leaf = Invoke-McPanelEnter $panel
         if ($null -ne $leaf) { Invoke-McOpenCurrent $Screen $State }
+        elseif ($panel.NavError) { $State.Message = $panel.NavError }
         return
     }
 

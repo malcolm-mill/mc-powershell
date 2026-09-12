@@ -8,6 +8,16 @@ follow [Semantic Versioning](https://semver.org); see
 
 ## [Unreleased]
 
+### Fixed
+- Enter on a registry subkey (or any non-filesystem container) now opens
+  it. The provider source built the child path with `Convert-Path`, which
+  strips the drive on every provider but the filesystem, so nothing could
+  navigate to the result.
+- A navigation that fails now says why on the message line instead of
+  silently staying put.
+- A container the account cannot read, such as `HKLM:\SECURITY`, is refused
+  with the provider's error rather than shown as an empty key.
+
 ## [0.6.0] - 2026-09-12
 
 ### Added
