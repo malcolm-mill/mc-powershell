@@ -48,6 +48,7 @@
         'Get-McDriveLocation'
         'Show-McSortMenu'
         'Get-McPanelCurrent'
+        'Get-McPanelLeafName'
         'Move-McPanelCursor'
         'Set-McPanelCursor'
         'Set-McPanelLocation'

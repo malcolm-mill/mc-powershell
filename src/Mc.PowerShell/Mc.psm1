@@ -89,6 +89,7 @@ only this session is stuck on the old one.
 . (Join-Path $PSScriptRoot 'Theme.ps1')
 . (Join-Path $PSScriptRoot 'Guard.ps1')
 . (Join-Path $PSScriptRoot 'Sources.ps1')
+. (Join-Path $PSScriptRoot 'Documents.ps1')
 . (Join-Path $PSScriptRoot 'Panel.ps1')
 . (Join-Path $PSScriptRoot 'Menu.ps1')
 . (Join-Path $PSScriptRoot 'Markdown.ps1')
@@ -139,6 +140,7 @@ Export-ModuleMember -Function @(
     'Get-McDriveLocation'
     'Show-McSortMenu'
     'Get-McPanelCurrent'
+    'Get-McPanelLeafName'
     'Move-McPanelCursor'
     'Set-McPanelCursor'
     'Set-McPanelLocation'

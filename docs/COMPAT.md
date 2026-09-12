@@ -93,5 +93,7 @@ here so the cost of unfreezing the others stays visible. See
 |---|---|---|
 | Any PSProvider as a panel | done | **Beyond mc**. Registry keys and values share a listing, as directories and files do; certificates are listed by name, issuer and expiry; Enter on a value, a variable, a function or a certificate shows it in the viewer |
 | Archives (zip, tar) | todo | M6 |
+| JSON documents as a panel | done | **Beyond mc**. Enter on a `.json` file descends into its structure at `file.json::/pointer`; Ctrl+PgUp exits to the directory as from an archive |
+| XML documents as a panel | todo | Same mechanism; elements, `@attribute` rows and `#text` |
 | FTP / SFTP / SHELL | wont-do | PowerShell modules mount these as drives; the PSProvider source gets them for free |
 | extfs scripts | wont-do | Superseded by the source contract |

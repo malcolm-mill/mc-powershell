@@ -8,6 +8,18 @@ follow [Semantic Versioning](https://semver.org); see
 
 ## [Unreleased]
 
+### Added
+- JSON documents as panels. Enter on a `.json` file descends into it as mc
+  descends into an archive: objects and arrays are containers, values are
+  leaves, with Name, Type and Value columns in document order. The location
+  is `file.json::/json/pointer`; Ctrl+PgUp from the top exits to the
+  directory with the cursor on the file. Enter or F3 on a value shows it,
+  F3 on a container shows the subtree as indented JSON. Documents are parsed
+  once and cached; a broken file is refused with the parser's message.
+- Sources can claim a file on Enter (`Open`), name their own location in the
+  parent listing (`LeafName`), and ask for a default sort (`DefaultSort`),
+  which is how a document keeps document order until the user sorts.
+
 ## [0.8.0] - 2026-09-12
 
 ### Added

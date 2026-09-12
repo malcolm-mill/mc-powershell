@@ -20,6 +20,7 @@ function New-McPanel {
         Top        = 0          # first visible row
         Rows       = 1          # visible row count, set by the renderer
         Sort       = [Mc.Native.SortField]::Name
+        SortExplicit = $false   # the user chose Sort; a source's DefaultSort no longer applies
         Descending = $false
         ShowHidden = $false
         Marked     = @{}        # Key -> $true
@@ -41,7 +42,11 @@ function Update-McPanel {
         if ($null -eq $entries) { $entries = @() }
         $entries = [Mc.Native.PanelEntry[]]@($entries)
 
-        [Mc.Native.Fs]::Sort($entries, $Panel.Sort, $Panel.Descending, $true)
+        # A source may ask for its own order (a JSON document in document
+        # order) until the user picks a sort for this panel.
+        $sort = $Panel.Sort
+        if (-not $Panel.SortExplicit -and $Panel.Source.ContainsKey('DefaultSort')) { $sort = $Panel.Source.DefaultSort }
+        [Mc.Native.Fs]::Sort($entries, $sort, $Panel.Descending, $true)
 
         # Re-apply marks across a reload.
         foreach ($e in $entries) {
@@ -96,6 +101,15 @@ function Get-McPanelCurrent {
     $Panel.Entries[$Panel.Index]
 }
 
+function Get-McPanelLeafName {
+    <# What the parent listing calls the panel's location; the source may know better than the path. #>
+    param([Parameter(Mandatory)][hashtable] $Panel)
+    if ($Panel.Source -and $Panel.Source.ContainsKey('LeafName')) {
+        try { return [string](& $Panel.Source.LeafName $Panel.Location) } catch { }
+    }
+    Get-McLeafName $Panel.Location
+}
+
 function Set-McPanelLocation {
     param(
         [Parameter(Mandatory)][hashtable] $Panel,
@@ -104,6 +118,7 @@ function Set-McPanelLocation {
     )
 
     $previous = $Panel.Location
+    $previousSource = $Panel.Source
     $Panel.NavError = $null
     $Panel.Location = $Location
     $Panel.Index = 0
@@ -120,6 +135,12 @@ function Set-McPanelLocation {
         $Panel.Location = $previous
         Update-McPanel $Panel
         return $false
+    }
+
+    # Entering a different source: its DefaultSort applies again.
+    if ($Panel.Source -ne $previousSource) {
+        $Panel.SortExplicit = $false
+        if ($Panel.Source.ContainsKey('DefaultSort')) { Update-McPanel $Panel }
     }
 
     if ($SelectName) {
@@ -141,7 +162,7 @@ function Invoke-McPanelEnter {
 
     # Going up: put the cursor on the directory we came from.
     $selectName = $null
-    if ($entry.IsUp) { $selectName = Get-McLeafName $Panel.Location }
+    if ($entry.IsUp) { $selectName = Get-McPanelLeafName $Panel }
 
     [void](Set-McPanelLocation $Panel $target -SelectName $selectName)
     return $null
@@ -152,7 +173,7 @@ function Invoke-McPanelUp {
     if (-not $Panel.Source.Parent) { return }
     $parent = & $Panel.Source.Parent $Panel.Location
     if ([string]::IsNullOrEmpty($parent)) { return }
-    $leaf = Get-McLeafName $Panel.Location
+    $leaf = Get-McPanelLeafName $Panel
     [void](Set-McPanelLocation $Panel $parent -SelectName $leaf)
 }
 
@@ -176,6 +197,7 @@ function Set-McPanelSort {
         [Parameter(Mandatory)][hashtable] $Panel,
         [Mc.Native.SortField] $Field
     )
+    $Panel.SortExplicit = $true
     if ($Panel.Sort -eq $Field) { $Panel.Descending = -not $Panel.Descending }
     else { $Panel.Sort = $Field; $Panel.Descending = $false }
 

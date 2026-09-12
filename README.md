@@ -102,7 +102,7 @@ exactly what is and is not caught.
 | Key | Action |
 |---|---|
 | Arrows, PgUp/PgDn, Home/End | Move the cursor |
-| Enter | Descend into the highlighted container; on a text file, open the viewer (never executes) |
+| Enter | Descend into the highlighted container; on a `.json` file, descend into its structure; on another text file, open the viewer (never executes) |
 | Ctrl+PgUp | Go up one level (mc's binding) |
 | Backspace | Delete a command-line character (never navigates, as in mc) |
 | Tab | Switch panel |
@@ -166,6 +166,16 @@ markers, and italics are underlined as mc's nroff mode does. F9 shows the
 source. Line numbers, go to line and search mean the same thing in both
 modes because formatting never adds or removes a line. A hex mode comes
 later.
+
+## Documents as panels
+
+Enter on a `.json` file descends into it the way mc descends into an archive.
+Objects and arrays are containers, values are leaves, and the columns are
+Name, Type and Value, in document order. The location reads
+`file.json::/servers/0`: the part after `::` is a JSON Pointer, and Ctrl+PgUp
+from the top comes back out to the directory with the cursor on the file.
+Enter or F3 on a value shows it; F3 on an object or array shows the subtree as
+indented JSON. F3 on the file itself still shows the raw text. XML is next.
 
 ## The shell
 

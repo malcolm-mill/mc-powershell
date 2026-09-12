@@ -17,6 +17,14 @@
 #   Content     [scriptblock]   param($Location, $Entry) -> viewer content or $null
 #                               (optional: what Enter/F3 shows for a leaf that
 #                               is not a file -- a registry value, a variable)
+#   Open        [scriptblock]   param($FilePath) -> location or $null
+#                               (optional: claim a file on Enter, as mc's VFS
+#                               enters an archive -- see Documents.ps1)
+#   LeafName    [scriptblock]   param($Location) -> what the parent listing
+#                               calls this location (optional; default is the
+#                               last path segment). Going up lands on it.
+#   DefaultSort [SortField]     sort to apply on entering this source unless
+#                               the user has chosen one (optional)
 #
 # A column spec is:
 #   @{ Header = 'Size'; Width = 8; Align = 'Right'; Get = { param($e) ... } }
@@ -85,7 +93,9 @@ function Get-McProp {
     if ($null -eq $Object) { return $null }
     $prop = $Object.PSObject.Properties[$Name]
     if ($null -eq $prop) { return $null }
-    try { return $prop.Value } catch { return $null }
+    # The comma keeps an enumerable value (a byte[], a string[], a JsonArray)
+    # whole; without it PowerShell would unroll it into its elements.
+    try { return ,$prop.Value } catch { return $null }
 }
 
 function Get-McParentPath {
@@ -162,6 +172,13 @@ Register-McPanelSource -Source @{
         param($Location, $Entry)
         if ($Entry.IsUp) { return $Entry.Key }
         if ($Entry.IsContainer) { return $Entry.Key }
+        # A file another source can open (a .json document) is entered like
+        # an archive in mc. Highest priority source wins.
+        foreach ($s in ($script:McSources | Sort-Object Priority -Descending)) {
+            if ($s.Name -eq 'FileSystem' -or -not $s.ContainsKey('Open')) { continue }
+            $opened = try { & $s.Open $Entry.Key } catch { $null }
+            if ($opened) { return $opened }
+        }
         return $null
     }
 

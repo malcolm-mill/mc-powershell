@@ -366,6 +366,86 @@ if ($denied.Count -gt 0) {
     Assert-That 'and the panel is still where it was' { $state.Right.Location -eq 'HKLM:\SOFTWARE' }
 }
 
+Write-Host "`nJSON documents as panels" -ForegroundColor Cyan
+# Enter on a .json file descends into it, as mc enters an archive. The
+# location is file::/json/pointer; Ctrl+PgUp from the root exits to the
+# directory with the cursor on the file.
+$fx = Join-Path $repo 'tests\fixtures'
+$state.ActiveSide = 'Left'
+Assert-That 'can open the fixtures directory' { Set-McPanelLocation $state.Left $fx }
+Write-McFrame $screen $state
+$jsonIndex = [array]::FindIndex($state.Left.Entries, [Predicate[object]]{ param($e) $e.Name -eq 'sample.json' })
+Assert-That 'sample.json is listed' { $jsonIndex -ge 0 }
+Set-McPanelCursor $state.Left $jsonIndex
+$state.Message = $null
+Invoke-McKey $state $screen 'enter'
+Assert-That 'Enter on a .json file enters it' { $state.Left.Location -eq "$fx\sample.json::/" }
+Assert-That 'the Json source took over' { $state.Left.Source.Name -eq 'Json' }
+Assert-That 'the columns are Name, Type, Value' {
+    (($state.Left.Columns | ForEach-Object Header) -join ',') -eq 'Name,Type,Value'
+}
+Assert-That 'children are in document order, not name order' {
+    (($state.Left.Entries | Select-Object -Skip 1 | ForEach-Object Name) -join ',') -eq 'name,enabled,timeout,owner,servers,paths,notes'
+}
+Assert-That 'each child is typed' {
+    (($state.Left.Entries | Select-Object -Skip 1 | ForEach-Object Tag) -join ',') -eq 'string,bool,number,null,array,object,string'
+}
+Assert-That 'objects and arrays are containers, values are leaves' {
+    $c = @($state.Left.Entries | Where-Object { $_.IsContainer -and -not $_.IsUp } | ForEach-Object Name)
+    ($c -join ',') -eq 'servers,paths'
+}
+$servers = $state.Left.Entries | Where-Object Name -eq 'servers'
+Assert-That 'the Value column summarises a container' { (& $state.Left.Columns[2].Get $servers) -eq '[11 items]' }
+Assert-That 'and quotes a string' {
+    (& $state.Left.Columns[2].Get ($state.Left.Entries | Where-Object Name -eq 'name')) -eq '"api-gateway"'
+}
+Set-McPanelCursor $state.Left ([array]::IndexOf($state.Left.Entries, $servers))
+Invoke-McKey $state $screen 'enter'
+Assert-That 'Enter on an array descends by pointer' { $state.Left.Location -eq "$fx\sample.json::/servers" }
+Assert-That 'array children are [i] in index order, [10] last' {
+    $state.Left.Entries[1].Name -eq '[0]' -and $state.Left.Entries[3].Name -eq '[2]' -and $state.Left.Entries[-1].Name -eq '[10]'
+}
+Set-McPanelCursor $state.Left ($state.Left.Entries.Count - 1)
+Invoke-McKey $state $screen 'enter'
+Assert-That 'and into [10]' { $state.Left.Location -eq "$fx\sample.json::/servers/10" }
+Invoke-McKey $state $screen 'C-pgup'
+Assert-That 'Ctrl+PgUp goes up one level with the cursor on [10]' {
+    $state.Left.Location -eq "$fx\sample.json::/servers" -and (Get-McPanelCurrent $state.Left).Name -eq '[10]'
+}
+Invoke-McKey $state $screen 'C-pgup'
+Invoke-McKey $state $screen 'C-pgup'
+Assert-That 'Ctrl+PgUp from the root exits to the directory, cursor on the file' {
+    $state.Left.Location -eq $fx -and (Get-McPanelCurrent $state.Left).Name -eq 'sample.json'
+}
+Assert-That 'and the filesystem source is back' { $state.Left.Source.Name -eq 'FileSystem' -and -not $state.Left.SortExplicit }
+
+Set-McPanelLocation $state.Left "$fx\sample.json::/" | Out-Null
+$notes = $state.Left.Entries | Where-Object Name -eq 'notes'
+Assert-That 'a string leaf views as its text, line by line' {
+    ((Get-McEntryContent $state.Left $notes).Lines -join '|') -eq 'line one|line two'
+}
+$paths = $state.Left.Entries | Where-Object Name -eq 'paths'
+Assert-That 'an object views as indented JSON' {
+    $l = (Get-McEntryContent $state.Left $paths).Lines
+    $l[0] -eq '{' -and $l[-1] -eq '}' -and $l.Count -eq 4
+}
+Set-McPanelCursor $state.Left ([array]::IndexOf($state.Left.Entries, $paths))
+Invoke-McKey $state $screen 'enter'
+Assert-That 'keys with / and ~ are escaped in the pointer and shown unescaped' {
+    $state.Left.Entries[1].Name -eq 'a/b' -and $state.Left.Entries[1].Key -eq "$fx\sample.json::/paths/a~1b" -and
+    $state.Left.Entries[2].Name -eq 'c~d' -and $state.Left.Entries[2].Key -eq "$fx\sample.json::/paths/c~0d"
+}
+Assert-That 'the leaf name of an escaped key is the key' {
+    (& $state.Left.Source.LeafName $state.Left.Entries[1].Key) -eq 'a/b'
+}
+
+Set-McPanelLocation $state.Left $fx | Out-Null
+Set-McPanelCursor $state.Left ([array]::FindIndex($state.Left.Entries, [Predicate[object]]{ param($e) $e.Name -eq 'broken.json' }))
+$state.Message = $null
+Invoke-McKey $state $screen 'enter'
+Assert-That 'a broken document is refused, staying in the directory' { $state.Left.Location -eq $fx }
+Assert-That 'with the parser''s reason on the message line' { $state.Message -match 'Cannot open' -and $state.Message -match 'JSON' }
+
 Write-Host "`nDrive chooser targets" -ForegroundColor Cyan
 # Cert: reports its root as "\", which Test-Path accepts as the root of the
 # current filesystem drive, so the chooser opened C:\ under the name Cert:.

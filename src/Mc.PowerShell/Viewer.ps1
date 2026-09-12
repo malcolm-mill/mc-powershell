@@ -149,10 +149,11 @@ function Invoke-McViewCurrent {
     $panel = Get-McActivePanel $State
     $entry = Get-McPanelCurrent $panel
     if ($null -eq $entry) { return }
-    if ($entry.IsContainer) { $State.Message = 'Enter opens a directory; F3 views files'; return }
 
-    $content = Get-McEntryContent $panel $entry
+    # A container may still have something to show (a JSON object's subtree).
+    $content = if ($entry.IsUp) { $null } else { Get-McEntryContent $panel $entry }
     if ($content) { Show-McViewerSafe $Screen $State "$($panel.Location)  $($entry.Name)" -Content $content; return }
+    if ($entry.IsContainer) { $State.Message = 'Enter opens a directory; F3 views files'; return }
 
     $resolved = Get-McViewablePath $entry
     if (-not $resolved) {

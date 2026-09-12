@@ -1,0 +1,21 @@
+{
+  "name": "api-gateway",
+  "enabled": true,
+  "timeout": 30,
+  "owner": null,
+  "servers": [
+    { "host": "alpha", "port": 8080 },
+    { "host": "beta", "port": 8081 },
+    { "host": "gamma", "port": 8082 },
+    { "host": "delta", "port": 8083 },
+    { "host": "epsilon", "port": 8084 },
+    { "host": "zeta", "port": 8085 },
+    { "host": "eta", "port": 8086 },
+    { "host": "theta", "port": 8087 },
+    { "host": "iota", "port": 8088 },
+    { "host": "kappa", "port": 8089 },
+    { "host": "lambda", "port": 8090 }
+  ],
+  "paths": { "a/b": "slash in key", "c~d": "tilde in key" },
+  "notes": "line one\nline two"
+}
