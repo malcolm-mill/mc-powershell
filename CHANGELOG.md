@@ -8,6 +8,12 @@ follow [Semantic Versioning](https://semver.org); see
 
 ## [Unreleased]
 
+### Fixed
+- Choosing `Cert:` in the drive chooser opened the root of the current
+  filesystem drive instead of the certificate stores. The drive reports its
+  root as `\`, which `Test-Path` accepts; the chooser now trusts a drive's
+  root only for the filesystem provider.
+
 ## [0.7.0] - 2026-09-12
 
 ### Added

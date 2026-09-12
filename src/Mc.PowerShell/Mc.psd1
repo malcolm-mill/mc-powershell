@@ -45,6 +45,7 @@
         'Convert-McMarkdown'
         'Get-McSegmentSlice'
         'Show-McDriveChooser'
+        'Get-McDriveLocation'
         'Show-McSortMenu'
         'Get-McPanelCurrent'
         'Move-McPanelCursor'

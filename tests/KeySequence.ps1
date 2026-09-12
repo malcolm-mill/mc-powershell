@@ -366,6 +366,21 @@ if ($denied.Count -gt 0) {
     Assert-That 'and the panel is still where it was' { $state.Right.Location -eq 'HKLM:\SOFTWARE' }
 }
 
+Write-Host "`nDrive chooser targets" -ForegroundColor Cyan
+# Cert: reports its root as "\", which Test-Path accepts as the root of the
+# current filesystem drive, so the chooser opened C:\ under the name Cert:.
+$byName = @{}
+foreach ($d in (Get-PSDrive | Where-Object Provider)) { $byName[$d.Name] = $d }
+Assert-That 'a filesystem drive opens at its root' { (Get-McDriveLocation $byName['C']) -eq 'C:\' }
+Assert-That 'Cert: opens at Cert:\ and not at \' { (Get-McDriveLocation $byName['Cert']) -eq 'Cert:\' }
+Assert-That 'HKLM: opens at HKLM:\' { (Get-McDriveLocation $byName['HKLM']) -eq 'HKLM:\' }
+Assert-That 'Env: opens at Env:\' { (Get-McDriveLocation $byName['Env']) -eq 'Env:\' }
+Assert-That 'Cert:\ lists the certificate stores' {
+    (Set-McPanelLocation $state.Right 'Cert:') -and
+    @($state.Right.Entries | Where-Object { $_.Name -in 'CurrentUser', 'LocalMachine' }).Count -eq 2
+}
+Assert-That 'and the title says so' { (& $state.Right.Source.Title $state.Right.Location) -match 'Certificate' }
+
 Write-Host "`nRegistry values as rows" -ForegroundColor Cyan
 # The registry provider's children are keys only. A registry browser must show
 # values too, so the source appends one leaf row per value under the subkeys.

@@ -128,16 +128,26 @@ function Show-McDriveChooser {
     if ($null -eq $choice) { return }
 
     $panel = if ($Side) { $State[$Side] } else { Get-McActivePanel $State }
-    $target = if ($choice.Root -and (Test-Path -LiteralPath $choice.Root -ErrorAction SilentlyContinue)) {
-        $choice.Root
-    } else {
-        "$($choice.Name):\"
-    }
+    $target = Get-McDriveLocation $choice
 
     if (-not (Set-McPanelLocation $panel $target)) {
         $State.Message = $panel.NavError
     }
     $Screen.Invalidate()
+}
+
+function Get-McDriveLocation {
+    <#
+      The location to open for a PSDrive. A filesystem drive's Root is the
+      path itself (C:\, or a mapped folder for Temp:). Every other provider
+      reports something that is not a location we can open -- HKLM: says
+      HKEY_LOCAL_MACHINE, Env: says nothing, and Cert: says "\", which
+      Test-Path happily accepts as the root of the current filesystem drive.
+      That last one opened C:\ under the name Cert: until 0.7.1.
+    #>
+    param($Drive)
+    if ($Drive.Provider.Name -eq 'FileSystem' -and $Drive.Root) { return [string]$Drive.Root }
+    "$($Drive.Name):\"
 }
 
 function Show-McSortMenu {
