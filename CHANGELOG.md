@@ -8,6 +8,8 @@ follow [Semantic Versioning](https://semver.org); see
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-12
+
 ### Added
 - Registry values are rows. A registry panel lists a key's values as leaf
   rows under its subkeys, with Name, Type and Data columns; keys show their
@@ -145,7 +147,8 @@ follow [Semantic Versioning](https://semver.org); see
   F3 viewer, Ctrl+O shell-out, F10 quit.
 - `tests/Smoke.ps1` headless render harness.
 
-[Unreleased]: https://github.com/malcolm-mill/mc-powershell/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/malcolm-mill/mc-powershell/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/malcolm-mill/mc-powershell/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/malcolm-mill/mc-powershell/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/malcolm-mill/mc-powershell/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/malcolm-mill/mc-powershell/compare/v0.3.0...v0.4.0
